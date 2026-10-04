@@ -1,0 +1,56 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - heading "HelpDesk" [level=1] [ref=e5]
+    - navigation [ref=e6]:
+      - button "Support Chat" [ref=e7] [cursor=pointer]
+      - button "Support Dashboard" [ref=e8] [cursor=pointer]
+  - main [ref=e9]:
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]:
+          - paragraph [ref=e14]: Hello! Describe your technical problem and I will try to help.
+          - paragraph [ref=e19]: I forgot my password
+          - generic [ref=e20]:
+            - paragraph [ref=e21]: "Please try these steps:"
+            - list [ref=e22]:
+              - listitem [ref=e23]: Click the "Forgot password" link on the login page.
+              - listitem [ref=e24]: Check your email (including spam) for the reset link.
+              - listitem [ref=e25]: Create a new password with at least 8 characters.
+              - listitem [ref=e26]: Clear your browser cache.
+              - listitem [ref=e27]: Try logging in with the new password.
+        - generic [ref=e15]:
+          - textbox "Describe your problem" [ref=e16]:
+            - /placeholder: Describe your problem... e.g. I cannot login
+          - button "Send" [ref=e17] [cursor=pointer]
+      - generic [ref=e33]:
+        - heading "Create a technical support request" [level=3] [ref=e34]
+        - generic [ref=e35]:
+          - generic [ref=e36]:
+            - text: Title
+            - textbox "Title" [active] [ref=e37]:
+              - /placeholder: Short summary of the problem
+              - text: Password reset email never arrives
+          - generic [ref=e38]:
+            - text: Description
+            - textbox "Description" [ref=e39]:
+              - /placeholder: What happened? What did you already try?
+              - text: I forgot my password
+          - generic [ref=e40]:
+            - generic [ref=e41]:
+              - text: Category
+              - combobox "Category" [ref=e42]:
+                - option "Login"
+                - option "Password" [selected]
+                - option "Payment"
+                - option "Internet"
+                - option "Application Error"
+                - option "General"
+            - generic [ref=e43]:
+              - text: Priority
+              - combobox "Priority" [ref=e44]:
+                - option "Low"
+                - option "Medium"
+                - option "High" [selected]
+          - generic [ref=e45]:
+            - button "Create Support Request" [ref=e46] [cursor=pointer]
+            - button "Cancel" [ref=e47] [cursor=pointer]

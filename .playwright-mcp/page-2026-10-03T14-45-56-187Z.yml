@@ -1,0 +1,64 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - heading "HelpDesk" [level=1] [ref=e5]
+    - navigation [ref=e6]:
+      - button "Support Chat" [ref=e7] [cursor=pointer]
+      - button "Support Dashboard" [ref=e8] [cursor=pointer]
+  - main [ref=e9]:
+    - generic [ref=e53]:
+      - generic [ref=e54]:
+        - generic [ref=e55]:
+          - generic [ref=e56]: Total Tickets
+          - strong [ref=e57]: "2"
+        - generic [ref=e58]:
+          - generic [ref=e59]: Open
+          - strong [ref=e60]: "1"
+        - generic [ref=e61]:
+          - generic [ref=e62]: In Progress
+          - strong [ref=e63]: "1"
+        - generic [ref=e64]:
+          - generic [ref=e65]: Resolved
+          - strong [ref=e66]: "0"
+      - generic [ref=e67]:
+        - textbox "Search tickets" [ref=e68]:
+          - /placeholder: Search by token, title or description
+        - combobox "Filter by status" [ref=e69]:
+          - option "All" [selected]
+          - option "Open"
+          - option "In Progress"
+          - option "Resolved"
+      - generic [ref=e70]:
+        - generic [ref=e72]:
+          - button "SUP-2026-00003 Open Password reset email never arrives Password High" [active] [ref=e73] [cursor=pointer]:
+            - generic [ref=e74]:
+              - generic [ref=e75]: SUP-2026-00003
+              - generic [ref=e76]: Open
+            - strong [ref=e77]: Password reset email never arrives
+            - generic [ref=e78]:
+              - generic [ref=e79]: Password
+              - generic [ref=e80]: High
+          - button "SUP-2026-00001 In Progress Cannot login Login High" [ref=e81] [cursor=pointer]:
+            - generic [ref=e82]:
+              - generic [ref=e83]: SUP-2026-00001
+              - generic [ref=e84]: In Progress
+            - strong [ref=e85]: Cannot login
+            - generic [ref=e86]:
+              - generic [ref=e87]: Login
+              - generic [ref=e88]: High
+        - generic [ref=e91]:
+          - generic [ref=e92]:
+            - generic [ref=e93]: SUP-2026-00003
+            - generic [ref=e94]: Open
+          - heading "Password reset email never arrives" [level=3] [ref=e95]
+          - paragraph [ref=e96]: 10/3/2026, 8:14:21 PM
+          - paragraph [ref=e97]: "Category: Password"
+          - paragraph [ref=e98]: "Priority: High"
+          - paragraph [ref=e99]: "Description:"
+          - paragraph [ref=e100]: I forgot my password
+          - generic [ref=e101]:
+            - text: Status
+            - combobox "Status" [ref=e102]:
+              - option "Open" [selected]
+              - option "In Progress"
+              - option "Resolved"
+          - button "Delete Ticket" [ref=e104] [cursor=pointer]
