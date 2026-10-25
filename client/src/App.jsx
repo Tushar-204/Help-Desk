@@ -97,11 +97,11 @@ export default function App() {
     >
       {page === 'dashboard' &&
         (isStaff ? (
-          <AdminDashboard onOpenTicket={openTicket} onNavigate={navigate} />
+          <AdminDashboard user={session.user} onOpenTicket={openTicket} onNavigate={navigate} />
         ) : (
           <EmployeeDashboard user={session.user} onNavigate={navigate} onOpenTicket={openTicket} />
         ))}
-      {page === 'ai' && (
+      {page === 'ai' && !isStaff && (
         <AiSupport user={session.user} onOpenTicket={openTicket} onNavigate={navigate} />
       )}
       {page === 'tickets' && (
@@ -111,8 +111,8 @@ export default function App() {
         <TicketDetails ticketId={ticketId} user={session.user} onBack={() => navigate('tickets')} />
       )}
       {page === 'team' && isAdmin && <ManageTeam />}
-      {page === 'kb' && <KnowledgeBase />}
-      {page === 'help' && <HelpPage />}
+      {page === 'kb' && !isStaff && <KnowledgeBase />}
+      {page === 'help' && <HelpPage user={session.user} />}
       {page === 'settings' && <Settings user={session.user} onLogout={handleLogout} />}
     </Layout>
   );

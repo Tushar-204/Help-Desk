@@ -4,10 +4,10 @@ import { StatusBadge } from './TicketTable';
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
-  { id: 'ai', label: 'AI Support', icon: '🤖' },
+  { id: 'ai', label: 'AI Support', icon: '🤖', employeeOnly: true },
   { id: 'tickets', label: 'My Tickets', icon: '🎫', adminLabel: 'Support Queue' },
   { id: 'team', label: 'Manage IT Support', icon: '👥', adminOnly: true },
-  { id: 'kb', label: 'Knowledge Base', icon: '📚' },
+  { id: 'kb', label: 'Knowledge Base', icon: '📚', employeeOnly: true },
   { id: 'help', label: 'Help', icon: '❓' },
 ];
 
@@ -156,7 +156,11 @@ export default function Layout({
 
         <nav className="nav">
           <span className="nav-label">Menu</span>
-          {NAV.filter((item) => !item.adminOnly || isAdmin).map((item) => (
+          {NAV.filter(
+            (item) =>
+              (!item.adminOnly || isAdmin) &&
+              (!item.employeeOnly || user.role === 'employee')
+          ).map((item) => (
             <button
               key={item.id}
               className={`nav-item ${page === item.id ? 'active' : ''}`}

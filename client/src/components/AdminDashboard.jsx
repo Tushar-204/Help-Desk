@@ -9,7 +9,7 @@ function greeting() {
   return 'Good evening';
 }
 
-export default function AdminDashboard({ onOpenTicket, onNavigate }) {
+export default function AdminDashboard({ user, onOpenTicket, onNavigate }) {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -31,7 +31,7 @@ export default function AdminDashboard({ onOpenTicket, onNavigate }) {
     <>
       <div className="page-head">
         <div>
-          <h1>{greeting()}, IT Support 👋</h1>
+          <h1>{greeting()}, {user?.role === 'admin' ? 'Administration' : 'IT Support'} 👋</h1>
           <p className="muted">Here's what needs your attention today.</p>
         </div>
         <button className="btn btn-primary" onClick={() => onNavigate('tickets')}>
