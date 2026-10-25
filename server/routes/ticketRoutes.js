@@ -1,7 +1,11 @@
 const express = require('express');
+const { isValidObjectId } = require('mongoose');
 const { Ticket, Counter, STATUSES, PRIORITIES } = require('../models/Ticket');
+const { CATEGORIES } = require('../bot/instructions');
+const { staffOnly, adminOnly } = require('../auth');
 
 const router = express.Router();
+const CATEGORY_NAMES = ['General', ...CATEGORIES.map((c) => c.name)];
 
 async function nextToken() {
   const counter = await Counter.findByIdAndUpdate(
@@ -9,85 +13,179 @@ async function nextToken() {
     { $inc: { seq: 1 } },
     { upsert: true, new: true }
   );
-  return `SUP-${new Date().getFullYear()}-${String(counter.seq).padStart(5, '0')}`;
+  return `HD-${String(counter.seq).padStart(4, '0')}`;
+}
+
+// Validates and normalizes ticket input. `partial` is used by PUT.
+function parseTicket(body = {}, { partial = false } = {}) {
+  const values = {};
+  const has = (key) => body[key] !== undefined;
+
+  if (!partial || has('title')) {
+    if (typeof body.title !== 'string' || !body.title.trim()) return { error: 'Title is required.' };
+    const title = body.title.trim();
+    if (title.length > 120) return { error: 'Title must be 120 characters or fewer.' };
+    values.title = title;
+  }
+
+  if (has('description')) {
+    if (typeof body.description !== 'string') return { error: 'Description must be text.' };
+    if (body.description.length > 2000) return { error: 'Description must be 2000 characters or fewer.' };
+    if (!partial && !body.description.trim()) return { error: 'Description is required.' };
+    values.description = body.description.trim();
+  } else if (!partial) {
+    return { error: 'Description is required.' };
+  }
+
+  if (has('category')) {
+    if (!CATEGORY_NAMES.includes(body.category)) return { error: 'Invalid category.' };
+    values.category = body.category;
+  } else if (!partial) {
+    values.category = 'General';
+  }
+
+  if (has('priority')) {
+    if (!PRIORITIES.includes(body.priority)) return { error: 'Invalid priority.' };
+    values.priority = body.priority;
+  } else if (!partial) {
+    values.priority = 'Medium';
+  }
+
+  if (has('status')) {
+    if (!STATUSES.includes(body.status)) return { error: 'Invalid status.' };
+    values.status = body.status;
+  }
+
+  if (has('assignedTo')) {
+    if (typeof body.assignedTo !== 'string' || !body.assignedTo.trim()) {
+      return { error: 'Assigned to must be text.' };
+    }
+    values.assignedTo = body.assignedTo.trim().slice(0, 80);
+  }
+
+  if (has('attemptedSteps')) {
+    if (!Array.isArray(body.attemptedSteps)) return { error: 'attemptedSteps must be a list.' };
+    if (body.attemptedSteps.length > 20) return { error: 'Too many troubleshooting steps.' };
+    if (body.attemptedSteps.some((s) => typeof s !== 'string' || s.length > 200)) {
+      return { error: 'Invalid troubleshooting step.' };
+    }
+    values.attemptedSteps = body.attemptedSteps.map((s) => s.trim()).filter(Boolean);
+  }
+
+  return { values };
+}
+
+async function createTicket(values) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await Ticket.create({ ...values, token: await nextToken() });
+    } catch (err) {
+      // Retry once on a duplicate token (counter doc was reset/raced).
+      if (err.code !== 11000 || attempt >= 1) throw err;
+    }
+  }
+}
+
+function canAccess(user, ticket) {
+  return ['admin', 'support'].includes(user.role) || String(ticket.createdBy) === String(user._id);
 }
 
 // POST /api/tickets
-router.post('/', async (req, res) => {
+router.post('/', async (req, res, next) => {
+  const { values, error } = parseTicket(req.body);
+  if (error) return res.status(400).json({ error });
+
   try {
-    const { title, description, category, priority } = req.body || {};
-    if (!title || !String(title).trim()) {
-      return res.status(400).json({ error: 'Title is required.' });
-    }
-
-    const ticket = await Ticket.create({
-      token: await nextToken(),
-      title: String(title).trim(),
-      description: description || '',
-      category: category || 'General',
-      priority: PRIORITIES.includes(priority) ? priority : 'Medium',
+    const ticket = await createTicket({
+      ...values,
+      employee: req.user.name,
+      createdBy: req.user._id,
     });
-
     res.status(201).json(ticket);
   } catch (err) {
-    res.status(500).json({ error: 'Could not create ticket: ' + err.message });
+    next(err);
   }
 });
 
-// GET /api/tickets
-router.get('/', async (req, res) => {
+// GET /api/tickets — employees see their own; IT support and admins see the queue.
+router.get('/', async (req, res, next) => {
   try {
-    const tickets = await Ticket.find().sort({ createdAt: -1 });
-    res.json(tickets);
+    const staff = ['admin', 'support'].includes(req.user.role);
+    const filter = staff ? {} : { createdBy: req.user._id };
+    res.json(await Ticket.find(filter).sort({ createdAt: -1 }));
   } catch (err) {
-    res.status(500).json({ error: 'Could not load tickets: ' + err.message });
+    next(err);
   }
 });
 
 // GET /api/tickets/:id
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req, res, next) => {
+  if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid ticket id.' });
   try {
     const ticket = await Ticket.findById(req.params.id);
     if (!ticket) return res.status(404).json({ error: 'Ticket not found.' });
+    if (!canAccess(req.user, ticket)) return res.status(403).json({ error: 'Not your ticket.' });
     res.json(ticket);
   } catch (err) {
-    res.status(400).json({ error: 'Invalid ticket id.' });
+    next(err);
   }
 });
 
-// PUT /api/tickets/:id
-router.put('/:id', async (req, res) => {
-  try {
-    const { title, description, category, priority, status } = req.body || {};
-    const update = {};
-    if (title !== undefined) update.title = title;
-    if (description !== undefined) update.description = description;
-    if (category !== undefined) update.category = category;
-    if (priority !== undefined) {
-      if (!PRIORITIES.includes(priority)) return res.status(400).json({ error: 'Invalid priority.' });
-      update.priority = priority;
-    }
-    if (status !== undefined) {
-      if (!STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid status.' });
-      update.status = status;
-    }
+// PUT /api/tickets/:id — status/priority/assignment handled by IT support.
+router.put('/:id', staffOnly, async (req, res, next) => {
+  if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid ticket id.' });
 
-    const ticket = await Ticket.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
+  const { values, error } = parseTicket(req.body, { partial: true });
+  if (error) return res.status(400).json({ error });
+  if (!Object.keys(values).length) return res.status(400).json({ error: 'Nothing to update.' });
+
+  try {
+    const ticket = await Ticket.findByIdAndUpdate(
+      req.params.id,
+      { ...values, updatedAt: Date.now() },
+      { new: true, runValidators: true }
+    );
     if (!ticket) return res.status(404).json({ error: 'Ticket not found.' });
     res.json(ticket);
   } catch (err) {
-    res.status(400).json({ error: 'Could not update ticket: ' + err.message });
+    next(err);
+  }
+});
+
+// POST /api/tickets/:id/messages — conversation between employee and IT support.
+router.post('/:id/messages', async (req, res, next) => {
+  if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid ticket id.' });
+  const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+  if (!text) return res.status(400).json({ error: 'Message is required.' });
+  if (text.length > 1000) return res.status(400).json({ error: 'Message must be 1000 characters or fewer.' });
+
+  try {
+    const ticket = await Ticket.findById(req.params.id);
+    if (!ticket) return res.status(404).json({ error: 'Ticket not found.' });
+    if (!canAccess(req.user, ticket)) return res.status(403).json({ error: 'Not your ticket.' });
+
+    ticket.messages.push({
+      author: req.user.name,
+      role: req.user.role === 'employee' ? 'employee' : 'admin',
+      text,
+    });
+    ticket.updatedAt = Date.now();
+    await ticket.save();
+    res.status(201).json(ticket);
+  } catch (err) {
+    next(err);
   }
 });
 
 // DELETE /api/tickets/:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', adminOnly, async (req, res, next) => {
+  if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid ticket id.' });
   try {
     const ticket = await Ticket.findByIdAndDelete(req.params.id);
     if (!ticket) return res.status(404).json({ error: 'Ticket not found.' });
-    res.json({ message: 'Ticket deleted.', ticket });
+    res.json({ message: 'Ticket deleted.' });
   } catch (err) {
-    res.status(400).json({ error: 'Invalid ticket id.' });
+    next(err);
   }
 });
 

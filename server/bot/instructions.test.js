@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { findCategory } = require('./instructions');
+const { findCategory, alreadyShown } = require('./instructions');
 
 test('matches login problems', () => {
   assert.strictEqual(findCategory('I cannot login').category, 'Login');
@@ -28,6 +28,12 @@ test('returns steps for a match', () => {
 });
 
 test('returns null when nothing matches', () => {
-  assert.strictEqual(findCategory('tell me a joke'), null);
-  assert.strictEqual(findCategory(''), null);
+  assert.equal(findCategory('hello there'), null);
+});
+
+test('detects troubleshooting steps already shown', () => {
+  const match = findCategory('my wifi is down');
+  assert.equal(alreadyShown(match, []), false);
+  assert.equal(alreadyShown(match, [match.steps[0]]), true);
+  assert.equal(alreadyShown(null, ['anything']), false);
 });

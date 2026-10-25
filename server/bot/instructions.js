@@ -35,7 +35,7 @@ const CATEGORIES = [
   },
   {
     name: 'Internet',
-    keywords: ['internet', 'wifi', 'wi-fi', 'network', 'connection', 'offline', 'slow', 'disconnect', 'router'],
+    keywords: ['internet', 'wifi', 'wi-fi', 'network', 'connection', 'offline', 'disconnect', 'router'],
     steps: [
       'Check that your internet connection is working.',
       'Restart your router or modem.',
@@ -77,4 +77,10 @@ function findCategory(message = '') {
   return { category: best.name, steps: best.steps };
 }
 
-module.exports = { CATEGORIES, findCategory };
+function alreadyShown(match, seenSteps = []) {
+  return Boolean(
+    match && Array.isArray(seenSteps) && match.steps.some((step) => seenSteps.includes(step))
+  );
+}
+
+module.exports = { CATEGORIES, findCategory, alreadyShown };

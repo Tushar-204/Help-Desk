@@ -1,91 +1,149 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import api from '../api';
 
-const CATEGORIES = ['Login', 'Password', 'Payment', 'Internet', 'Application Error', 'General'];
 const PRIORITIES = ['Low', 'Medium', 'High'];
 
-export default function TicketForm({ problem, onDone }) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState(problem?.description || '');
-  const [category, setCategory] = useState(problem?.category || 'General');
-  const [priority, setPriority] = useState('Medium');
-  const [error, setError] = useState('');
+export default function TicketForm({ draft, onCancel, onCreated }) {
+  const [title, setTitle] = useState(draft.title);
+  const [description, setDescription] = useState(draft.description);
+  const [category, setCategory] = useState(draft.category || 'General');
+  const [priority, setPriority] = useState(draft.priority || 'Medium');
+  const [steps, setSteps] = useState(
+    (draft.attemptedSteps || []).map((text) => ({ text, checked: true }))
+  );
+  const [categories, setCategories] = useState(['General']);
   const [saving, setSaving] = useState(false);
-  const [created, setCreated] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    api
+      .get('/bot/instructions')
+      .then((res) => setCategories(['General', ...res.data.map((c) => c.name)]))
+      .catch(() => {});
+  }, []);
+
+  function toggleStep(index) {
+    setSteps((prev) =>
+      prev.map((step, i) => (i === index ? { ...step, checked: !step.checked } : step))
+    );
+  }
 
   async function submit(e) {
     e.preventDefault();
-    setError('');
-    if (!title.trim()) {
-      setError('Please enter a title for your request.');
+    if (saving) return;
+    if (!title.trim() || !description.trim()) {
+      setError('Please enter the issue title and describe the problem.');
       return;
     }
     setSaving(true);
+    setError('');
     try {
-      const { data } = await api.post('/tickets', { title, description, category, priority });
-      setCreated(data);
+      const { data } = await api.post('/tickets', {
+        title,
+        description,
+        category,
+        priority,
+        attemptedSteps: steps.filter((s) => s.checked).map((s) => s.text),
+      });
+      onCreated(data);
+      window.scrollTo(0, 0);
     } catch (err) {
-      setError(err.response?.data?.error || 'Could not create the support request.');
-    } finally {
+      setError(err.response?.data?.error || 'Could not create the ticket. Please try again.');
       setSaving(false);
     }
   }
 
-  if (created) {
-    return (
-      <section className="ticket-form card">
-        <h3>Support request created</h3>
-        <p>Your support token is:</p>
-        <p className="token">{created.token}</p>
-        <p className="muted">Save this token — quote it when you contact support.</p>
-        <button className="btn" onClick={onDone}>Back to Chatbot</button>
-      </section>
-    );
-  }
-
   return (
-    <section className="ticket-form card">
-      <h3>Create a technical support request</h3>
-      {error && <p className="error">{error}</p>}
-      <form onSubmit={submit}>
-        <label>
-          Title
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Short summary of the problem" />
-        </label>
-        <label>
-          Description
-          <textarea
-            rows={4}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="What happened? What did you already try?"
-          />
-        </label>
-        <div className="row">
-          <label>
-            Category
-            <select value={category} onChange={(e) => setCategory(e.target.value)}>
-              {CATEGORIES.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Priority
-            <select value={priority} onChange={(e) => setPriority(e.target.value)}>
-              {PRIORITIES.map((p) => (
-                <option key={p}>{p}</option>
-              ))}
-            </select>
-          </label>
+    <form className="card form-card" onSubmit={submit}>
+      {error && <div className="alert alert-error">{error}</div>}
+
+      <div className="field">
+        <label htmlFor="ticket-title">Issue Title</label>
+        <input
+          id="ticket-title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Short summary of the problem"
+          maxLength={120}
+          required
+        />
+      </div>
+
+      <div className="form-row">
+        <div className="field">
+          <label htmlFor="ticket-category">Category</label>
+          <select
+            id="ticket-category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            {categories.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
         </div>
-        <div className="form-actions">
-          <button className="btn" type="submit" disabled={saving}>
-            {saving ? 'Creating...' : 'Create Support Request'}
-          </button>
-          <button className="btn btn-ghost" type="button" onClick={onDone}>Cancel</button>
+
+        <div className="field">
+          <label>Priority</label>
+          <div className="pills">
+            {PRIORITIES.map((level) => (
+              <label key={level} className={`pill ${priority === level ? 'selected' : ''}`}>
+                <input
+                  type="radio"
+                  name="priority"
+                  value={level}
+                  checked={priority === level}
+                  onChange={() => setPriority(level)}
+                />
+                {level}
+              </label>
+            ))}
+          </div>
         </div>
-      </form>
-    </section>
+      </div>
+
+      <div className="field">
+        <label htmlFor="ticket-description">Description</label>
+        <textarea
+          id="ticket-description"
+          rows={5}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="What happened? Include any error messages."
+          maxLength={2000}
+          required
+        />
+        <span className="muted small">{description.length}/2000</span>
+      </div>
+
+      <div className="field">
+        <label>AI Troubleshooting Attempted</label>
+        {steps.length === 0 ? (
+          <p className="muted small">No troubleshooting steps were recorded in this chat.</p>
+        ) : (
+          <div className="step-checklist">
+            {steps.map((step, index) => (
+              <label key={step.text} className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={step.checked}
+                  onChange={() => toggleStep(index)}
+                />
+                {step.text}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="form-actions">
+        <button className="btn btn-outline" type="button" onClick={onCancel}>
+          Cancel
+        </button>
+        <button className="btn btn-primary" type="submit" disabled={saving}>
+          {saving ? 'Creating…' : 'Submit Ticket'}
+        </button>
+      </div>
+    </form>
   );
 }

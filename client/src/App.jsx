@@ -1,43 +1,119 @@
-import { useState } from 'react';
-import ChatBot from './components/ChatBot.jsx';
-import TicketForm from './components/TicketForm.jsx';
-import Dashboard from './components/Dashboard.jsx';
+import { useEffect, useState } from 'react';
+import { loadSession, saveSession, clearSession } from './api';
+import LoginPage from './components/LoginPage';
+import Layout from './components/Layout';
+import EmployeeDashboard from './components/EmployeeDashboard';
+import AdminDashboard from './components/AdminDashboard';
+import ManageTeam from './components/ManageTeam';
+import AiSupport from './components/AiSupport';
+import MyTickets from './components/MyTickets';
+import TicketDetails from './components/TicketDetails';
+import KnowledgeBase from './components/KnowledgeBase';
+import HelpPage from './components/HelpPage';
+import Settings from './components/Settings';
 
 export default function App() {
-  const [view, setView] = useState('home');
-  const [problem, setProblem] = useState(null); // { category, description } once support is needed
+  const [session, setSession] = useState(loadSession);
+  const [page, setPage] = useState('dashboard');
+  const [ticketId, setTicketId] = useState(null);
+  const [ticketQuery, setTicketQuery] = useState('');
+
+  // Seed the first history entry so Back returns to the login screen instead
+  // of leaving the site.
+  useEffect(() => {
+    window.history.replaceState({ page: session ? page : 'login' }, '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    function onPop(event) {
+      const state = event.state;
+      if (!state?.page || state.page === 'login') {
+        clearSession();
+        setSession(null);
+        setPage('dashboard');
+        setTicketId(null);
+        return;
+      }
+      if (!loadSession()) {
+        setSession(null);
+        return;
+      }
+      setPage(state.page);
+      setTicketId(state.ticketId || null);
+    }
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  function handleLogin(next, remember) {
+    saveSession(next, remember);
+    setSession(next);
+    setPage('dashboard');
+    window.history.pushState({ page: 'dashboard' }, '');
+  }
+
+  function handleLogout() {
+    clearSession();
+    setSession(null);
+    setPage('dashboard');
+    setTicketId(null);
+    window.history.replaceState({ page: 'login' }, '');
+  }
+
+  function navigate(next) {
+    setPage(next);
+    if (next !== 'ticket') setTicketId(null);
+    if (next !== page) window.history.pushState({ page: next }, '');
+    window.scrollTo(0, 0);
+  }
+
+  function openTicket(id) {
+    setTicketId(id);
+    setPage('ticket');
+    window.history.pushState({ page: 'ticket', ticketId: id }, '');
+    window.scrollTo(0, 0);
+  }
+
+  function searchTickets(value) {
+    setTicketQuery(value);
+    setPage('tickets');
+    if (page !== 'tickets') window.history.pushState({ page: 'tickets' }, '');
+  }
+
+  if (!session) return <LoginPage onLogin={handleLogin} />;
+
+  const isAdmin = session.user.role === 'admin';
+  const isStaff = isAdmin || session.user.role === 'support';
 
   return (
-    <div className="app">
-      <header className="header">
-        <h1>HelpDesk</h1>
-        <nav>
-          <button
-            className={`nav-btn ${view === 'home' ? 'active' : ''} `}
-            onClick={() => setView('home')}
-            
-          >
-            Support Chat
-          </button>
-          <button
-            className={`nav-btn ${view === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setView('dashboard')}
-          >
-            Support Dashboard
-          </button>
-        </nav>
-      </header>
-
-      <main className="main">
-        {view === 'home' ? (
-          <div className="home">
-            <ChatBot onNeedSupport={setProblem} />
-            {problem && <TicketForm problem={problem} onDone={() => setProblem(null)} />}
-          </div>
+    <Layout
+      user={session.user}
+      page={page}
+      onNavigate={navigate}
+      onLogout={handleLogout}
+      onSearch={searchTickets}
+      onOpenTicket={openTicket}
+    >
+      {page === 'dashboard' &&
+        (isStaff ? (
+          <AdminDashboard onOpenTicket={openTicket} onNavigate={navigate} />
         ) : (
-          <Dashboard />
-        )}
-      </main>
-    </div>
+          <EmployeeDashboard user={session.user} onNavigate={navigate} onOpenTicket={openTicket} />
+        ))}
+      {page === 'ai' && (
+        <AiSupport user={session.user} onOpenTicket={openTicket} onNavigate={navigate} />
+      )}
+      {page === 'tickets' && (
+        <MyTickets admin={isStaff} initialQuery={ticketQuery} onOpenTicket={openTicket} />
+      )}
+      {page === 'ticket' && (
+        <TicketDetails ticketId={ticketId} user={session.user} onBack={() => navigate('tickets')} />
+      )}
+      {page === 'team' && isAdmin && <ManageTeam />}
+      {page === 'kb' && <KnowledgeBase />}
+      {page === 'help' && <HelpPage />}
+      {page === 'settings' && <Settings user={session.user} onLogout={handleLogout} />}
+    </Layout>
   );
 }

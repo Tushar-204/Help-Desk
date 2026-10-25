@@ -1,30 +1,74 @@
 const express = require('express');
-const { findCategory } = require('../bot/instructions');
+const { CATEGORIES, findCategory, alreadyShown } = require('../bot/instructions');
+const { askGemini } = require('../bot/gemini');
 
 const router = express.Router();
+const MAX_TURNS = 10;
 
-router.post('/message', (req, res) => {
-  const { message } = req.body || {};
+function fallbackReply(match, repeat) {
+  if (!match) {
+    return 'Could you tell me a bit more about the problem — which device or app is affected, and what happens when you try it?';
+  }
+  if (repeat) {
+    return `Those steps cover the usual fixes for ${match.category.toLowerCase()} problems. What happens when you try them — do you get any error message?`;
+  }
+  return 'Please try these steps:';
+}
 
-  if (!message || !String(message).trim()) {
+// POST /api/bot/message
+router.post('/message', async (req, res, next) => {
+  const { message, history, userTurns, seenSteps, topic } = req.body || {};
+
+  if (typeof message !== 'string' || !message.trim()) {
     return res.status(400).json({ error: 'Please describe your problem.' });
   }
+  if (message.length > 1000) {
+    return res.status(400).json({ error: 'Message must be 1000 characters or fewer.' });
+  }
 
-  const match = findCategory(message);
+  // ponytail: turn count is reported by the client that owns the chat; move it
+  // into a server-side session if the limit ever needs to resist tampering.
+  const turns = Number(userTurns) || 1;
 
-  if (!match) {
+  // Keep the chat on the first detected topic so "still broken" replies don't
+  // false-match a different category.
+  const locked = CATEGORIES.find((cat) => cat.name === topic);
+  const match = locked ? { category: locked.name, steps: locked.steps } : findCategory(message);
+  const repeat = alreadyShown(match, seenSteps);
+
+  if (turns >= MAX_TURNS) {
     return res.json({
-      category: null,
-      reply: 'Sorry, I could not match your problem. Technical support is available — please create a support ticket and our staff will help you.',
+      category: match?.category || null,
+      reply:
+        "I've done my best, but this needs a human. Let's create a support ticket so our IT team can take it from here.",
       steps: [],
+      escalate: true,
+      maxTurns: MAX_TURNS,
     });
   }
 
-  res.json({
-    category: match.category,
-    reply: 'Please try these steps:',
-    steps: match.steps,
-  });
+  try {
+    const aiReply = await askGemini({
+      message: message.trim(),
+      history: Array.isArray(history) ? history : [],
+      steps: match ? { topic: match.category, list: match.steps, tried: repeat } : null,
+    });
+
+    res.json({
+      category: match?.category || null,
+      reply: aiReply || fallbackReply(match, repeat),
+      steps: repeat ? [] : match?.steps || [],
+      escalate: false,
+      maxTurns: MAX_TURNS,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/bot/instructions — powers quick-help chips, ticket categories, knowledge base.
+router.get('/instructions', (req, res) => {
+  res.json(CATEGORIES);
 });
 
 module.exports = router;
