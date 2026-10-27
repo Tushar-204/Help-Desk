@@ -1,19 +1,21 @@
 const crypto = require('crypto');
+const { promisify } = require('util');
 const { User } = require('./models/User');
 
 const SECRET = process.env.AUTH_SECRET || 'helpdesk-dev-secret';
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const scrypt = promisify(crypto.scrypt);
 
-function hashPassword(password) {
+async function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.scryptSync(String(password), salt, 64).toString('hex');
-  return `${salt}:${hash}`;
+  const hash = await scrypt(String(password), salt, 64);
+  return `${salt}:${hash.toString('hex')}`;
 }
 
-function verifyPassword(password, stored) {
+async function verifyPassword(password, stored) {
   const [salt, hash] = String(stored || '').split(':');
   if (!salt || !hash) return false;
-  const candidate = crypto.scryptSync(String(password), salt, 64);
+  const candidate = await scrypt(String(password), salt, 64);
   const expected = Buffer.from(hash, 'hex');
   return expected.length === candidate.length && crypto.timingSafeEqual(candidate, expected);
 }

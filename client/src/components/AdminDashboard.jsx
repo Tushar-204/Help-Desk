@@ -9,18 +9,33 @@ function greeting() {
   return 'Good evening';
 }
 
-export default function AdminDashboard({ user, onOpenTicket, onNavigate }) {
+export default function AdminDashboard({ user, onOpenTicket, onNavigate, refreshKey }) {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
+    let ignore = false;
     api
       .get('/tickets')
-      .then((res) => setTickets(res.data))
-      .catch(() => setError('Could not load the support queue.'))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((res) => {
+        if (ignore) return;
+        setTickets(res.data);
+        setError('');
+      })
+      .catch(() => !ignore && setError('Could not load the support queue.'))
+      .finally(() => !ignore && setLoading(false));
+    return () => {
+      ignore = true;
+    };
+  }, [refreshKey, reload]);
+
+  function retry() {
+    setLoading(true);
+    setError('');
+    setReload((n) => n + 1);
+  }
 
   const count = (status) => tickets.filter((t) => t.status === status).length;
   const highPriority = tickets.filter(
@@ -38,8 +53,6 @@ export default function AdminDashboard({ user, onOpenTicket, onNavigate }) {
           🎫 Open Support Queue
         </button>
       </div>
-
-      {error && <div className="alert alert-error">{error}</div>}
 
       <div className="stats">
         <div className="stat-card">
@@ -75,6 +88,13 @@ export default function AdminDashboard({ user, onOpenTicket, onNavigate }) {
 
         {loading ? (
           <p className="muted">Loading queue…</p>
+        ) : error ? (
+          <div className="empty-state">
+            <span>⚠️</span>
+            <h3>Could not load the support queue</h3>
+            <p className="muted">{error}</p>
+            <button className="btn btn-outline" onClick={retry}>Try again</button>
+          </div>
         ) : tickets.length === 0 ? (
           <div className="empty-state">
             <span>✅</span>

@@ -4,20 +4,35 @@ import TicketTable from './TicketTable';
 
 const TABS = ['All', 'Open', 'In Progress', 'Resolved'];
 
-export default function MyTickets({ admin, initialQuery, onOpenTicket }) {
+export default function MyTickets({ admin, initialQuery, onOpenTicket, refreshKey }) {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState(initialQuery || '');
   const [tab, setTab] = useState('All');
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
+    let ignore = false;
     api
       .get('/tickets')
-      .then((res) => setTickets(res.data))
-      .catch(() => setError('Could not load tickets.'))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((res) => {
+        if (ignore) return;
+        setTickets(res.data);
+        setError('');
+      })
+      .catch(() => !ignore && setError('Could not load tickets.'))
+      .finally(() => !ignore && setLoading(false));
+    return () => {
+      ignore = true;
+    };
+  }, [refreshKey, reload]);
+
+  function retry() {
+    setLoading(true);
+    setError('');
+    setReload((n) => n + 1);
+  }
 
   useEffect(() => {
     setSearch(initialQuery || '');
@@ -52,8 +67,6 @@ export default function MyTickets({ admin, initialQuery, onOpenTicket }) {
         </div>
       </div>
 
-      {error && <div className="alert alert-error">{error}</div>}
-
       <section className="card">
         <div className="tickets-toolbar">
           <div className="search inline">
@@ -71,6 +84,7 @@ export default function MyTickets({ admin, initialQuery, onOpenTicket }) {
               <button
                 key={item}
                 className={`tab ${tab === item ? 'active' : ''}`}
+                aria-pressed={tab === item}
                 onClick={() => setTab(item)}
               >
                 {item} <span className="tab-count">{count(item)}</span>
@@ -81,6 +95,13 @@ export default function MyTickets({ admin, initialQuery, onOpenTicket }) {
 
         {loading ? (
           <p className="muted">Loading tickets…</p>
+        ) : error ? (
+          <div className="empty-state">
+            <span>⚠️</span>
+            <h3>Could not load tickets</h3>
+            <p className="muted">{error}</p>
+            <button className="btn btn-outline" onClick={retry}>Try again</button>
+          </div>
         ) : filtered.length === 0 ? (
           <div className="empty-state">
             <span>🔍</span>

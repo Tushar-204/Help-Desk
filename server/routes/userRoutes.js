@@ -1,4 +1,5 @@
 const express = require('express');
+const { isValidObjectId } = require('mongoose');
 const { User } = require('../models/User');
 const { hashPassword, adminOnly } = require('../auth');
 
@@ -26,15 +27,15 @@ router.post('/', adminOnly, async (req, res, next) => {
   if (typeof email !== 'string' || !EMAIL_RE.test(email.trim())) {
     return res.status(400).json({ error: 'A valid email is required.' });
   }
-  if (typeof password !== 'string' || password.length < 8) {
-    return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+  if (typeof password !== 'string' || password.length < 8 || password.length > 128) {
+    return res.status(400).json({ error: 'Password must be 8 to 128 characters.' });
   }
 
   try {
     const user = await User.create({
       name: name.trim(),
       email: email.trim().toLowerCase(),
-      passwordHash: hashPassword(password),
+      passwordHash: await hashPassword(password),
       role: 'support',
     });
     res.status(201).json({
@@ -48,6 +49,20 @@ router.post('/', adminOnly, async (req, res, next) => {
     if (err.code === 11000) {
       return res.status(409).json({ error: 'That email is already registered.' });
     }
+    next(err);
+  }
+});
+
+// DELETE /api/users/:id — administration removes an IT support login.
+router.delete('/:id', adminOnly, async (req, res, next) => {
+  if (!isValidObjectId(req.params.id)) {
+    return res.status(400).json({ error: 'Invalid account id.' });
+  }
+  try {
+    const user = await User.findOneAndDelete({ _id: req.params.id, role: 'support' });
+    if (!user) return res.status(404).json({ error: 'IT support account not found.' });
+    res.json({ message: 'IT support account removed.' });
+  } catch (err) {
     next(err);
   }
 });

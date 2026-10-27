@@ -27,11 +27,11 @@ function run(middleware, role) {
   return { status, nextCalled };
 }
 
-test('password hash verifies only the right password', () => {
-  const stored = hashPassword('secret123');
-  assert.equal(verifyPassword('secret123', stored), true);
-  assert.equal(verifyPassword('wrong', stored), false);
-  assert.equal(verifyPassword('secret123', 'garbage'), false);
+test('password hash verifies only the right password', async () => {
+  const stored = await hashPassword('secret123');
+  assert.equal(await verifyPassword('secret123', stored), true);
+  assert.equal(await verifyPassword('wrong', stored), false);
+  assert.equal(await verifyPassword('secret123', 'garbage'), false);
 });
 
 test('signed token round-trips and rejects tampering', () => {

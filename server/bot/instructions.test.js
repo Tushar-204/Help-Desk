@@ -18,6 +18,21 @@ test('matches internet problems', () => {
   assert.strictEqual(findCategory('wifi keeps disconnecting').category, 'Internet');
 });
 
+test('matches hardware problems', () => {
+  assert.strictEqual(findCategory('my printer is not working').category, 'Hardware');
+  assert.strictEqual(findCategory('my computer is running very slow').category, 'Hardware');
+});
+
+test('matches email problems', () => {
+  assert.strictEqual(findCategory('I cannot send or receive emails').category, 'Email');
+});
+
+test('password steps point to Settings and support', () => {
+  const { steps } = findCategory('I forgot my password');
+  assert.ok(steps.some((step) => step.includes('Settings')));
+  assert.ok(steps.some((step) => step.includes('it-support@company.com')));
+});
+
 test('matches application errors', () => {
   assert.strictEqual(findCategory('the page shows an error').category, 'Application Error');
 });

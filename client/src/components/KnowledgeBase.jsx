@@ -6,6 +6,8 @@ const ICONS = {
   Password: '🔑',
   Payment: '💳',
   Internet: '📶',
+  Hardware: '🖨️',
+  Email: '📧',
   'Application Error': '💻',
 };
 
@@ -14,14 +16,29 @@ export default function KnowledgeBase() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
+    let ignore = false;
     api
       .get('/bot/instructions')
-      .then((res) => setCategories(res.data))
-      .catch(() => setError('Could not load the knowledge base.'))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((res) => {
+        if (ignore) return;
+        setCategories(res.data);
+        setError('');
+      })
+      .catch(() => !ignore && setError('Could not load the knowledge base.'))
+      .finally(() => !ignore && setLoading(false));
+    return () => {
+      ignore = true;
+    };
+  }, [reload]);
+
+  function retry() {
+    setLoading(true);
+    setError('');
+    setReload((n) => n + 1);
+  }
 
   const term = search.trim().toLowerCase();
   const filtered = categories
@@ -53,10 +70,18 @@ export default function KnowledgeBase() {
         />
       </div>
 
-      {error && <div className="alert alert-error">{error}</div>}
       {loading && <p className="muted">Loading solutions…</p>}
 
-      {!loading && filtered.length === 0 && (
+      {!loading && error && (
+        <div className="card empty-state">
+          <span>⚠️</span>
+          <h3>Could not load the knowledge base</h3>
+          <p className="muted">{error}</p>
+          <button className="btn btn-outline" onClick={retry}>Try again</button>
+        </div>
+      )}
+
+      {!loading && !error && filtered.length === 0 && (
         <div className="card empty-state">
           <span>🔍</span>
           <h3>No solutions found</h3>
@@ -64,7 +89,7 @@ export default function KnowledgeBase() {
         </div>
       )}
 
-      <div className="kb-grid">
+      {!error && <div className="kb-grid">
         {filtered.map((category) => (
           <details key={category.name} className="kb-card" open={term ? true : undefined}>
             <summary>
@@ -85,7 +110,7 @@ export default function KnowledgeBase() {
             </ol>
           </details>
         ))}
-      </div>
+      </div>}
     </>
   );
 }

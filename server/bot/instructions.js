@@ -15,11 +15,11 @@ const CATEGORIES = [
     name: 'Password',
     keywords: ['password', 'reset', 'forgot', 'change pass', 'otp', 'verification code'],
     steps: [
-      'Click the "Forgot password" link on the login page.',
-      'Check your email (including spam) for the reset link.',
-      'Create a new password with at least 8 characters.',
-      'Clear your browser cache.',
-      'Try logging in with the new password.',
+      'If you are signed in, change your password from Settings → Password.',
+      'If you are locked out, use the Forgot password? link on the sign-in page for reset instructions.',
+      'Make sure Caps Lock is off and try signing in again.',
+      'Try signing in from a different browser or device.',
+      'If you are still locked out, email IT support at it-support@company.com.',
     ],
   },
   {
@@ -42,6 +42,28 @@ const CATEGORIES = [
       'Move closer to the router or use a wired connection.',
       'Close other apps or tabs using heavy bandwidth.',
       'Restart your browser and try again.',
+    ],
+  },
+  {
+    name: 'Hardware',
+    keywords: ['printer', 'print', 'computer', 'laptop', 'desktop', 'monitor', 'keyboard', 'mouse', 'screen', 'hardware', 'slow'],
+    steps: [
+      'Check that the device is powered on and connected.',
+      'Restart the device and try the task again.',
+      'Check the cables or wireless connection for the printer, monitor, or keyboard.',
+      'Update the device driver or restart the computer.',
+      'If it still fails, note any error message for IT support.',
+    ],
+  },
+  {
+    name: 'Email',
+    keywords: ['email', 'mail', 'outlook', 'inbox', 'smtp'],
+    steps: [
+      'Check that your internet connection is working.',
+      'Make sure your mailbox is not full.',
+      'Check the recipient address and try sending again.',
+      'Restart your email app or sign in to webmail.',
+      'If mail still fails, send IT support the exact error message.',
     ],
   },
   {

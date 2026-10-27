@@ -179,7 +179,7 @@ export default function AiSupport({ user, onOpenTicket, onNavigate }) {
           </span>
         </header>
 
-        <div className="chat-body">
+        <div className="chat-body" role="log" aria-live="polite" aria-relevant="additions">
           {messages.map((message) => (
             <div key={message.id} className={`msg ${message.from}`}>
               {message.from === 'bot' && <span className="bot-avatar sm">🤖</span>}

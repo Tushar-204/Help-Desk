@@ -76,6 +76,7 @@ export default function Layout({
   onLogout,
   onSearch,
   onOpenTicket,
+  onActivity,
   children,
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -90,11 +91,12 @@ export default function Layout({
 
   useEffect(() => {
     let alive = true;
-    const snapshot = (t) => ({ status: t.status, count: t.messages?.length || 0 });
+    const snapshot = (t) => ({ status: t.status, count: t.messageCount || 0 });
 
     async function check() {
+      if (document.visibilityState !== 'visible') return;
       try {
-        const { data } = await api.get('/tickets');
+        const { data } = await api.get('/tickets/activity');
         if (!alive) return;
         if (!seen.current) {
           seen.current = new Map(data.map((t) => [t._id, snapshot(t)]));
@@ -107,25 +109,37 @@ export default function Layout({
             if (String(t.createdBy) !== String(user.id)) changed.push({ ticket: t, fresh: true });
           } else if (prev.status !== t.status) {
             if (mySide === 'employee') changed.push({ ticket: t, fresh: false });
-          } else if (prev.count !== (t.messages?.length || 0)) {
-            const lastRole = t.messages?.[t.messages.length - 1]?.role;
-            if (lastRole !== mySide) changed.push({ ticket: t, fresh: false });
+          } else if (prev.count !== snapshot(t).count) {
+            if (t.lastMessageRole !== mySide) changed.push({ ticket: t, fresh: false });
           }
           seen.current.set(t._id, snapshot(t));
         }
-        if (changed.length) setToast({ ...changed[0], count: changed.length });
+        const live = new Set(data.map((t) => t._id));
+        for (const id of seen.current.keys()) {
+          if (!live.has(id)) seen.current.delete(id);
+        }
+        if (changed.length) {
+          setToast({ ...changed[0], count: changed.length });
+          onActivity?.();
+        }
       } catch {
         // ignore polling errors; the list still loads on demand
       }
     }
 
+    function onVisibility() {
+      if (document.visibilityState === 'visible') check();
+    }
+
     check();
     const id = setInterval(check, 15000);
+    document.addEventListener('visibilitychange', onVisibility);
     return () => {
       alive = false;
       clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [user.id, user.role, mySide]);
+  }, [user.id, user.role, mySide, onActivity]);
 
   useEffect(() => {
     if (!toast) return;
@@ -212,12 +226,14 @@ export default function Layout({
             <button
               className="icon-btn"
               aria-label="Notifications"
+              aria-expanded={menu === 'notifications'}
               onClick={() => setMenu(menu === 'notifications' ? null : 'notifications')}
             >
               🔔
             </button>
             <button
               className="profile-btn"
+              aria-expanded={menu === 'profile'}
               onClick={() => setMenu(menu === 'profile' ? null : 'profile')}
             >
               <span className="avatar sm">{initials(user.name)}</span>
@@ -257,6 +273,8 @@ export default function Layout({
       {toast && (
         <button
           className="toast"
+          role="status"
+          aria-live="polite"
           onClick={() => {
             const id = toast.ticket._id;
             setToast(null);

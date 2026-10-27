@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import api from '../api';
 import {
   StatusBadge,
@@ -20,34 +20,71 @@ function initials(name = '') {
   );
 }
 
-export default function TicketDetails({ ticketId, user, onBack }) {
+export default function TicketDetails({ ticketId, user, onBack, refreshKey }) {
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [reload, setReload] = useState(0);
+  const request = useRef(0);
+  const refreshSeen = useRef(refreshKey);
   const isStaff = user.role === 'admin' || user.role === 'support';
 
-  useEffect(() => {
+  async function load({ silent = false } = {}) {
     if (!ticketId) {
       setError('Ticket not found.');
       setLoading(false);
       return;
     }
-    api
-      .get(`/tickets/${ticketId}`)
-      .then((res) => setTicket(res.data))
-      .catch((err) => setError(err.response?.data?.error || 'Could not load this ticket.'))
-      .finally(() => setLoading(false));
-  }, [ticketId]);
+    const id = ++request.current;
+    if (!silent) {
+      setLoading(true);
+      setError('');
+    }
+    try {
+      const { data } = await api.get(`/tickets/${ticketId}`);
+      if (id === request.current) {
+        setTicket(data);
+        setError('');
+      }
+    } catch (err) {
+      if (id === request.current) {
+        setError(err.response?.data?.error || 'Could not load this ticket.');
+      }
+    } finally {
+      if (id === request.current) setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    setTicket(null);
+    setReply('');
+    setSending(false);
+    setUpdating(false);
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticketId, reload]);
+
+  useEffect(() => {
+    if (refreshKey === refreshSeen.current) return;
+    refreshSeen.current = refreshKey;
+    load({ silent: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
 
   async function changeStatus(status) {
+    if (updating) return;
+    setUpdating(true);
     setError('');
     try {
       const { data } = await api.put(`/tickets/${ticketId}`, { status });
       setTicket(data);
     } catch (err) {
       setError(err.response?.data?.error || 'Could not update the status.');
+    } finally {
+      setUpdating(false);
     }
   }
 
@@ -76,7 +113,12 @@ export default function TicketDetails({ ticketId, user, onBack }) {
           <span>⚠️</span>
           <h3>Ticket unavailable</h3>
           <p className="muted">{error || 'This ticket could not be found.'}</p>
-          <button className="btn btn-outline" onClick={onBack}>← Back to tickets</button>
+          <div className="form-actions">
+            <button className="btn btn-outline" onClick={() => setReload((n) => n + 1)}>
+              Try again
+            </button>
+            <button className="btn btn-outline" onClick={onBack}>← Back to tickets</button>
+          </div>
         </div>
       </section>
     );
@@ -126,7 +168,7 @@ export default function TicketDetails({ ticketId, user, onBack }) {
             {ticket.messages.length === 0 ? (
               <p className="muted">No messages yet. Start the conversation below.</p>
             ) : (
-              <div className="thread">
+              <div className="thread" role="log" aria-live="polite" aria-relevant="additions">
                 {ticket.messages.map((message, index) => (
                   <div
                     key={`${message.createdAt}-${index}`}
@@ -184,6 +226,7 @@ export default function TicketDetails({ ticketId, user, onBack }) {
                   <button
                     key={status}
                     className={`status-option ${ticket.status === status ? 'active' : ''}`}
+                    disabled={updating}
                     onClick={() => changeStatus(status)}
                   >
                     {status}

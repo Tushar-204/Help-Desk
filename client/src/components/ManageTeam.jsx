@@ -10,15 +10,47 @@ export default function ManageTeam() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [listError, setListError] = useState('');
   const [created, setCreated] = useState(null);
+  const [reload, setReload] = useState(0);
+  const [removing, setRemoving] = useState('');
 
   useEffect(() => {
+    let ignore = false;
     api
       .get('/users')
-      .then((res) => setAgents(res.data))
-      .catch(() => setError('Could not load IT support accounts.'))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((res) => {
+        if (ignore) return;
+        setAgents(res.data);
+        setListError('');
+      })
+      .catch(() => !ignore && setListError('Could not load IT support accounts.'))
+      .finally(() => !ignore && setLoading(false));
+    return () => {
+      ignore = true;
+    };
+  }, [reload]);
+
+  function retry() {
+    setLoading(true);
+    setListError('');
+    setReload((n) => n + 1);
+  }
+
+  async function remove(agent) {
+    if (!window.confirm(`Remove ${agent.name}'s IT support login?`)) return;
+    setRemoving(agent.id || agent._id);
+    setListError('');
+    try {
+      await api.delete(`/users/${agent.id || agent._id}`);
+      setAgents((prev) => prev.filter((a) => (a.id || a._id) !== (agent.id || agent._id)));
+      if (created?.email === agent.email) setCreated(null);
+    } catch (err) {
+      setListError(err.response?.data?.error || 'Could not remove the IT support account.');
+    } finally {
+      setRemoving('');
+    }
+  }
 
   const update = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
@@ -102,6 +134,8 @@ export default function ManageTeam() {
               onChange={update('password')}
               placeholder="At least 8 characters"
               autoComplete="new-password"
+              minLength={8}
+              maxLength={128}
               required
             />
             <span className="muted small">
@@ -122,8 +156,15 @@ export default function ManageTeam() {
           <span className="muted small">{agents.length} total</span>
         </div>
 
+        {listError && <div className="alert alert-error">{listError}</div>}
         {loading ? (
           <p className="muted">Loading accounts…</p>
+        ) : listError ? (
+          <div className="empty-state">
+            <span>⚠️</span>
+            <h3>Could not load accounts</h3>
+            <button className="btn btn-outline" onClick={retry}>Try again</button>
+          </div>
         ) : agents.length === 0 ? (
           <div className="empty-state">
             <span>👥</span>
@@ -139,6 +180,7 @@ export default function ManageTeam() {
                   <th>Email</th>
                   <th>Role</th>
                   <th>Added</th>
+                  <th aria-label="Actions" />
                 </tr>
               </thead>
               <tbody>
@@ -150,6 +192,15 @@ export default function ManageTeam() {
                       <span className="badge progress">IT Support</span>
                     </td>
                     <td className="muted">{formatDate(agent.createdAt)}</td>
+                    <td>
+                      <button
+                        className="link-btn danger"
+                        disabled={removing === (agent.id || agent._id)}
+                        onClick={() => remove(agent)}
+                      >
+                        {removing === (agent.id || agent._id) ? 'Removing…' : 'Remove'}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

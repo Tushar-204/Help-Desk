@@ -1,9 +1,17 @@
 const express = require('express');
 const { CATEGORIES, findCategory, alreadyShown } = require('../bot/instructions');
 const { askGemini } = require('../bot/gemini');
+const { rateLimit } = require('../middleware/rateLimit');
 
 const router = express.Router();
 const MAX_TURNS = 10;
+
+const chatLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: 20,
+  key: (req) => String(req.user?._id || req.ip),
+  message: 'Too many assistant messages. Please wait a few minutes.',
+});
 
 function fallbackReply(match, repeat) {
   if (!match) {
@@ -16,7 +24,7 @@ function fallbackReply(match, repeat) {
 }
 
 // POST /api/bot/message
-router.post('/message', async (req, res, next) => {
+router.post('/message', chatLimiter, async (req, res, next) => {
   const { message, history, userTurns, seenSteps, topic } = req.body || {};
 
   if (typeof message !== 'string' || !message.trim()) {

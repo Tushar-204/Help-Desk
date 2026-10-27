@@ -3,6 +3,7 @@ const { isValidObjectId } = require('mongoose');
 const { Ticket, Counter, STATUSES, PRIORITIES } = require('../models/Ticket');
 const { CATEGORIES } = require('../bot/instructions');
 const { staffOnly, adminOnly } = require('../auth');
+const { EMPLOYEE_CREATE_FIELDS, STAFF_UPDATE_FIELDS, pickFields } = require('../ticketFields');
 
 const router = express.Router();
 const CATEGORY_NAMES = ['General', ...CATEGORIES.map((c) => c.name)];
@@ -92,12 +93,15 @@ function canAccess(user, ticket) {
 
 // POST /api/tickets
 router.post('/', async (req, res, next) => {
-  const { values, error } = parseTicket(req.body);
-  if (error) return res.status(400).json({ error });
+  const parsed = parseTicket(req.body);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+  const values = pickFields(parsed.values, EMPLOYEE_CREATE_FIELDS);
 
   try {
     const ticket = await createTicket({
       ...values,
+      status: 'Open',
+      assignedTo: 'IT Support',
       employee: req.user.name,
       createdBy: req.user._id,
     });
@@ -113,6 +117,37 @@ router.get('/', async (req, res, next) => {
     const staff = ['admin', 'support'].includes(req.user.role);
     const filter = staff ? {} : { createdBy: req.user._id };
     res.json(await Ticket.find(filter).sort({ createdAt: -1 }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/tickets/activity — lightweight snapshot for the notification poll.
+router.get('/activity', async (req, res, next) => {
+  try {
+    const staff = ['admin', 'support'].includes(req.user.role);
+    const filter = staff ? {} : { createdBy: req.user._id };
+    const rows = await Ticket.aggregate([
+      { $match: filter },
+      { $sort: { updatedAt: -1 } },
+      {
+        $project: {
+          token: 1,
+          title: 1,
+          status: 1,
+          createdBy: 1,
+          updatedAt: 1,
+          messageCount: { $size: { $ifNull: ['$messages', []] } },
+          lastMessageRole: {
+            $ifNull: [
+              { $arrayElemAt: [{ $ifNull: ['$messages.role', []] }, -1] },
+              null,
+            ],
+          },
+        },
+      },
+    ]);
+    res.json(rows);
   } catch (err) {
     next(err);
   }
@@ -135,8 +170,9 @@ router.get('/:id', async (req, res, next) => {
 router.put('/:id', staffOnly, async (req, res, next) => {
   if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid ticket id.' });
 
-  const { values, error } = parseTicket(req.body, { partial: true });
-  if (error) return res.status(400).json({ error });
+  const parsed = parseTicket(req.body, { partial: true });
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+  const values = pickFields(parsed.values, STAFF_UPDATE_FIELDS);
   if (!Object.keys(values).length) return res.status(400).json({ error: 'Nothing to update.' });
 
   try {

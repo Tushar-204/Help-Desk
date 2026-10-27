@@ -50,7 +50,18 @@ export default function TicketTable({ tickets, onOpen, showEmployee = false }) {
               <td><PriorityBadge priority={ticket.priority} /></td>
               <td><StatusBadge status={ticket.status} /></td>
               <td className="muted">{formatDate(ticket.createdAt)}</td>
-              <td className="row-arrow">→</td>
+              <td className="row-arrow">
+                <button
+                  className="row-open"
+                  aria-label={`Open ${ticket.token}: ${ticket.title}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpen(ticket._id);
+                  }}
+                >
+                  →
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>

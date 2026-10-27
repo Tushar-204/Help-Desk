@@ -9,16 +9,21 @@ export default function TicketForm({ draft, onCancel, onCreated }) {
   const [category, setCategory] = useState(draft.category || 'General');
   const [priority, setPriority] = useState(draft.priority || 'Medium');
   const [steps, setSteps] = useState(
-    (draft.attemptedSteps || []).map((text) => ({ text, checked: true }))
+    (draft.attemptedSteps || []).map((text) => ({ text, checked: false }))
   );
-  const [categories, setCategories] = useState(['General']);
+  const initialCategory = draft.category || 'General';
+  const [categories, setCategories] = useState(
+    initialCategory === 'General' ? ['General'] : ['General', initialCategory]
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     api
       .get('/bot/instructions')
-      .then((res) => setCategories(['General', ...res.data.map((c) => c.name)]))
+      .then((res) =>
+        setCategories(Array.from(new Set(['General', ...res.data.map((c) => c.name), initialCategory])))
+      )
       .catch(() => {});
   }, []);
 
@@ -122,6 +127,7 @@ export default function TicketForm({ draft, onCancel, onCreated }) {
           <p className="muted small">No troubleshooting steps were recorded in this chat.</p>
         ) : (
           <div className="step-checklist">
+            <p className="muted small">Tick the steps you actually tried in the chat.</p>
             {steps.map((step, index) => (
               <label key={step.text} className="checkbox">
                 <input

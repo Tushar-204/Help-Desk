@@ -4,7 +4,7 @@ const CONTENT = {
     faqs: [
       {
         q: 'How do I reset my password?',
-        a: 'Use the “Forgot password?” link on the sign-in page, or email IT support at it-support@company.com.',
+        a: 'If you are signed in, open Settings → Password. If you are locked out, use the “Forgot password?” link on the sign-in page for instructions, or email IT support at it-support@company.com.',
       },
       {
         q: 'How do I create a support ticket?',
@@ -54,7 +54,7 @@ const CONTENT = {
       },
       {
         q: 'How do I get or reset my login?',
-        a: 'IT support accounts are created by Administration. Ask them to create your account or replace your password.',
+        a: 'If you can sign in, change your password in Settings → Password. If you are locked out, ask Administration to remove and recreate your account.',
       },
     ],
     aside: {
@@ -80,11 +80,15 @@ const CONTENT = {
       },
       {
         q: 'What can administration accounts do?',
-        a: 'Create and list IT support accounts, monitor the Support Queue, reply to tickets, and change ticket statuses.',
+        a: 'Create and remove IT support accounts, monitor the Support Queue, reply to tickets, and change ticket statuses.',
       },
       {
         q: 'What can IT support do?',
         a: 'Agents work the Support Queue, reply to employees, and update ticket statuses. They cannot manage accounts.',
+      },
+      {
+        q: 'How do I reset an agent password?',
+        a: 'Agents can change their own password in Settings → Password. If an agent is locked out, remove their account in Manage IT Support and create a new one.',
       },
       {
         q: 'What if I am locked out?',
@@ -97,7 +101,7 @@ const CONTENT = {
       rows: [
         ['👥', 'Add an agent', 'Manage IT Support in the sidebar.'],
         ['🎫', 'Oversee tickets', 'Open the Support Queue.'],
-        ['🔐', 'Password resets', 'Recreate an agent login here; admin recovery is handled by the system owner.'],
+        ['🔐', 'Password resets', 'Agents change their own password in Settings; if locked out, remove and recreate the account.'],
       ],
     },
   },
