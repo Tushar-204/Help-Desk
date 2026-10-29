@@ -6,6 +6,7 @@ const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
   { id: 'ai', label: 'AI Support', icon: '🤖', employeeOnly: true },
   { id: 'tickets', label: 'My Tickets', icon: '🎫', adminLabel: 'Support Queue' },
+  { id: 'employees', label: 'Manage Employees', icon: '👤', adminOnly: true },
   { id: 'team', label: 'Manage IT Support', icon: '👥', adminOnly: true },
   { id: 'kb', label: 'Knowledge Base', icon: '📚', employeeOnly: true },
   { id: 'help', label: 'Help', icon: '❓' },

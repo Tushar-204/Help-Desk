@@ -73,9 +73,7 @@ export default function Settings({ user, onLogout }) {
             </span>
           </div>
           <p className="muted small">
-            {user.role === 'employee'
-              ? 'Contact IT support if your name or email needs to be updated.'
-              : 'Ask Administration if your name or email needs to be updated.'}
+            Ask Administration if your name or email needs to be updated.
           </p>
         </section>
 

@@ -35,9 +35,10 @@ test('password hash verifies only the right password', async () => {
 });
 
 test('signed token round-trips and rejects tampering', () => {
-  const token = signToken({ _id: '507f1f77bcf86cd799439011' });
+  const token = signToken({ _id: '507f1f77bcf86cd799439011', tokenVersion: 3 });
   const payload = verifyToken(token);
   assert.equal(payload.sub, '507f1f77bcf86cd799439011');
+  assert.equal(payload.v, 3);
   assert.ok(payload.exp > Date.now());
 
   const [body, sig] = token.split('.');

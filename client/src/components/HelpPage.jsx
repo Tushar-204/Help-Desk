@@ -3,8 +3,12 @@ const CONTENT = {
     subtitle: 'Answers to common questions and ways to reach us.',
     faqs: [
       {
+        q: 'How do I create an account?',
+        a: 'On the sign-in page, choose “Create an account” and register with your @company.com email. Your employee account is ready immediately. IT Support accounts are created by Administration.',
+      },
+      {
         q: 'How do I reset my password?',
-        a: 'If you are signed in, open Settings → Password. If you are locked out, use the “Forgot password?” link on the sign-in page for instructions, or email IT support at it-support@company.com.',
+        a: 'If you are signed in, open Settings → Password. If you are locked out, ask Administration at admin@company.com to reset it.',
       },
       {
         q: 'How do I create a support ticket?',
@@ -53,8 +57,12 @@ const CONTENT = {
         a: 'The bell shows recent activity, and a toast pops up when a new ticket or employee reply arrives.',
       },
       {
+        q: 'Can I create or reset employee accounts?',
+        a: 'No. Administration manages employee accounts, including password resets and deactivation.',
+      },
+      {
         q: 'How do I get or reset my login?',
-        a: 'If you can sign in, change your password in Settings → Password. If you are locked out, ask Administration to remove and recreate your account.',
+        a: 'If you can sign in, change your password in Settings → Password. If you are locked out, ask Administration to reset it.',
       },
     ],
     aside: {
@@ -63,32 +71,40 @@ const CONTENT = {
       rows: [
         ['📧', 'Email', 'admin@company.com'],
         ['🕘', 'Hours', 'Mon–Fri, 9:00 AM – 6:00 PM'],
-        ['🔑', 'New accounts', 'Created in Administration → Manage IT Support.'],
+        ['🔑', 'New accounts', 'IT support accounts are created in Administration → Manage IT Support.'],
       ],
     },
   },
   admin: {
-    subtitle: 'How to manage IT support accounts and oversee the queue.',
+    subtitle: 'How to manage employee and IT support accounts and oversee the queue.',
     faqs: [
+      {
+        q: 'How do employees get accounts?',
+        a: 'Employees can self-register from the sign-in page using a @company.com email, or you can create their account in Manage Employees and share the credentials.',
+      },
+      {
+        q: 'How do I add an employee?',
+        a: 'Open Manage Employees, enter the employee’s name, @company.com email, and a password of at least 8 characters, then choose Create account.',
+      },
+      {
+        q: 'How do I deactivate or delete an employee?',
+        a: 'Use Deactivate in Manage Employees to block sign-in and end active sessions while keeping ticket history. Delete is available only when the employee has zero tickets.',
+      },
       {
         q: 'How do I add an IT support agent?',
         a: 'Open Manage IT Support, enter the agent’s name, email, and a password of at least 8 characters, then choose Create account.',
       },
       {
-        q: 'How does the agent sign in?',
+        q: 'How does an agent sign in?',
         a: 'Share the credentials you created. The agent signs in from the IT Support tab on the login page.',
       },
       {
-        q: 'What can administration accounts do?',
-        a: 'Create and remove IT support accounts, monitor the Support Queue, reply to tickets, and change ticket statuses.',
+        q: 'How do I reset an employee or agent password?',
+        a: 'Open Manage Employees or Manage IT Support and choose Reset password. Share the generated temporary password; the user can change it in Settings → Password.',
       },
       {
         q: 'What can IT support do?',
         a: 'Agents work the Support Queue, reply to employees, and update ticket statuses. They cannot manage accounts.',
-      },
-      {
-        q: 'How do I reset an agent password?',
-        a: 'Agents can change their own password in Settings → Password. If an agent is locked out, remove their account in Manage IT Support and create a new one.',
       },
       {
         q: 'What if I am locked out?',
@@ -99,9 +115,10 @@ const CONTENT = {
       title: 'Administration Tips',
       blurb: 'Quick links for account management.',
       rows: [
+        ['👤', 'Add an employee', 'Manage Employees in the sidebar.'],
         ['👥', 'Add an agent', 'Manage IT Support in the sidebar.'],
         ['🎫', 'Oversee tickets', 'Open the Support Queue.'],
-        ['🔐', 'Password resets', 'Agents change their own password in Settings; if locked out, remove and recreate the account.'],
+        ['🔐', 'Password resets', 'Use Reset password on either account page; users can change it in Settings.'],
       ],
     },
   },

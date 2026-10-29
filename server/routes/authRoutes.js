@@ -2,6 +2,7 @@ const express = require('express');
 const { User } = require('../models/User');
 const { auth, verifyPassword, hashPassword, signToken } = require('../auth');
 const { rateLimit } = require('../middleware/rateLimit');
+const { parseAccount } = require('../accountRules');
 
 const router = express.Router();
 
@@ -10,6 +11,40 @@ const loginLimiter = rateLimit({
   limit: 10,
   key: (req) => `${req.ip}:${String(req.body?.email || '').toLowerCase()}`,
   message: 'Too many sign-in attempts. Try again in a few minutes.',
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  message: 'Too many accounts created from this network. Try again later.',
+});
+
+function authResponse(user) {
+  return {
+    token: signToken(user),
+    user: { id: user._id, name: user.name, email: user.email, role: user.role },
+  };
+}
+
+// POST /api/auth/register — public employee self-registration.
+router.post('/register', registerLimiter, async (req, res, next) => {
+  const parsed = parseAccount(req.body, { companyOnly: true });
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+
+  try {
+    const user = await User.create({
+      name: parsed.values.name,
+      email: parsed.values.email,
+      passwordHash: await hashPassword(parsed.values.password),
+      role: 'employee',
+    });
+    res.status(201).json(authResponse(user));
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ error: 'That email is already registered.' });
+    }
+    next(err);
+  }
 });
 
 // POST /api/auth/login
@@ -21,13 +56,10 @@ router.post('/login', loginLimiter, async (req, res, next) => {
 
   try {
     const user = await User.findOne({ email: email.trim().toLowerCase() });
-    if (!user || !(await verifyPassword(password, user.passwordHash))) {
+    if (!user || user.active === false || !(await verifyPassword(password, user.passwordHash))) {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
-    res.json({
-      token: signToken(user),
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
-    });
+    res.json(authResponse(user));
   } catch (err) {
     next(err);
   }

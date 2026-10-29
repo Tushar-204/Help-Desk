@@ -4,7 +4,7 @@ import LoginPage from './components/LoginPage';
 import Layout from './components/Layout';
 import EmployeeDashboard from './components/EmployeeDashboard';
 import AdminDashboard from './components/AdminDashboard';
-import ManageTeam from './components/ManageTeam';
+import ManageAccounts from './components/ManageAccounts';
 import AiSupport from './components/AiSupport';
 import MyTickets from './components/MyTickets';
 import TicketDetails from './components/TicketDetails';
@@ -12,7 +12,7 @@ import KnowledgeBase from './components/KnowledgeBase';
 import HelpPage from './components/HelpPage';
 import Settings from './components/Settings';
 
-const PAGES = new Set(['dashboard', 'ai', 'tickets', 'ticket', 'team', 'kb', 'help', 'settings']);
+const PAGES = new Set(['dashboard', 'ai', 'tickets', 'ticket', 'employees', 'team', 'kb', 'help', 'settings']);
 
 export default function App() {
   const [session, setSession] = useState(loadSession);
@@ -102,7 +102,7 @@ export default function App() {
     const role = session.user.role;
     const blocked =
       (role !== 'employee' && (page === 'ai' || page === 'kb')) ||
-      (role !== 'admin' && page === 'team');
+      (role !== 'admin' && (page === 'team' || page === 'employees'));
     if (blocked) {
       setPage('dashboard');
       window.history.replaceState({ page: 'dashboard' }, '');
@@ -165,7 +165,8 @@ export default function App() {
           refreshKey={refreshKey}
         />
       )}
-      {page === 'team' && isAdmin && <ManageTeam />}
+      {page === 'employees' && isAdmin && <ManageAccounts key="employee" role="employee" />}
+      {page === 'team' && isAdmin && <ManageAccounts key="support" role="support" />}
       {page === 'kb' && !isStaff && <KnowledgeBase />}
       {page === 'help' && <HelpPage user={session.user} />}
       {page === 'settings' && <Settings user={session.user} onLogout={handleLogout} />}

@@ -19,7 +19,7 @@ const CATEGORIES = [
       'If you are locked out, use the Forgot password? link on the sign-in page for reset instructions.',
       'Make sure Caps Lock is off and try signing in again.',
       'Try signing in from a different browser or device.',
-      'If you are still locked out, email IT support at it-support@company.com.',
+      'If you are still locked out, email Administration at admin@company.com.',
     ],
   },
   {

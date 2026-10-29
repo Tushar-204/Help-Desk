@@ -22,7 +22,11 @@ async function verifyPassword(password, stored) {
 
 function signToken(user) {
   const body = Buffer.from(
-    JSON.stringify({ sub: String(user._id), exp: Date.now() + TTL_MS })
+    JSON.stringify({
+      sub: String(user._id),
+      v: user.tokenVersion || 0,
+      exp: Date.now() + TTL_MS,
+    })
   ).toString('base64url');
   const sig = crypto.createHmac('sha256', SECRET).update(body).digest('base64url');
   return `${body}.${sig}`;
@@ -49,8 +53,15 @@ async function auth(req, res, next) {
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
     const payload = verifyToken(token);
     if (!payload) return res.status(401).json({ error: 'Please sign in.' });
-    const user = await User.findById(payload.sub).select('name email role');
-    if (!user) return res.status(401).json({ error: 'Please sign in.' });
+    const user = await User.findById(payload.sub).select(
+      'name email role active tokenVersion'
+    );
+    if (!user || user.active === false) {
+      return res.status(401).json({ error: 'Please sign in.' });
+    }
+    if ((payload.v || 0) !== (user.tokenVersion || 0)) {
+      return res.status(401).json({ error: 'Please sign in.' });
+    }
     req.user = user;
     next();
   } catch (err) {

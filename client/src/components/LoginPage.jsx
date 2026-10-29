@@ -7,23 +7,64 @@ const ROLE_TABS = [
   { id: 'admin', label: '🛡️ Administration', name: 'Administration', noun: 'an administration' },
 ];
 
+const RESET_MESSAGES = {
+  employee: 'Ask Administration at admin@company.com to reset your password.',
+  support: 'Only an administrator can reset your password. Contact admin@company.com.',
+  admin: 'Administration passwords are reset by the system owner. Contact them for help.',
+};
+
 export default function LoginPage({ onLogin }) {
+  const [mode, setMode] = useState('signin');
   const [role, setRole] = useState('employee');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [remember, setRemember] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
+  function switchMode(next) {
+    setMode(next);
+    setError('');
+    setPassword('');
+    setConfirmPassword('');
+    setShowPassword(false);
+  }
+
   async function submit(e) {
     e.preventDefault();
     if (busy) return;
-    setBusy(true);
     setError('');
+
+    if (mode === 'register') {
+      if (!email.trim().toLowerCase().endsWith('@company.com')) {
+        setError('Use your @company.com email address.');
+        return;
+      }
+      if (password.length < 8 || password.length > 128) {
+        setError('Password must be 8 to 128 characters.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError('New password and confirmation do not match.');
+        return;
+      }
+    }
+
+    setBusy(true);
     try {
-      const { data } = await api.post('/auth/login', { email, password });
-      if (data.user.role !== role) {
+      const { data } =
+        mode === 'register'
+          ? await api.post('/auth/register', {
+              name,
+              email,
+              password,
+            })
+          : await api.post('/auth/login', { email, password });
+
+      if (mode === 'signin' && data.user.role !== role) {
         const actual = ROLE_TABS.find((tab) => tab.id === data.user.role);
         setError(
           `That is ${actual?.noun || 'a different'} account. Choose ${
@@ -67,28 +108,49 @@ export default function LoginPage({ onLogin }) {
           <div className="brand brand-mobile">
             <span className="brand-mark">🎧</span> HelpDesk
           </div>
-          <h2>Welcome back 👋</h2>
-          <p className="muted">Sign in to your account to continue.</p>
+          <h2>{mode === 'register' ? 'Create your account' : 'Welcome back 👋'}</h2>
+          <p className="muted">
+            {mode === 'register'
+              ? 'Register with your company email to start using HelpDesk.'
+              : 'Sign in to your account to continue.'}
+          </p>
 
-          <div className="role-tabs" role="tablist" aria-label="Choose account type">
-            {ROLE_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={role === tab.id}
-                className={`role-tab ${role === tab.id ? 'active' : ''}`}
-                onClick={() => {
-                  setRole(tab.id);
-                  setError('');
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          {mode === 'signin' && (
+            <div className="role-tabs" role="tablist" aria-label="Choose account type">
+              {ROLE_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={role === tab.id}
+                  className={`role-tab ${role === tab.id ? 'active' : ''}`}
+                  onClick={() => {
+                    setRole(tab.id);
+                    setError('');
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {error && <div className="alert alert-error">{error}</div>}
+
+          {mode === 'register' && (
+            <div className="field">
+              <label htmlFor="name">Full name</label>
+              <input
+                id="name"
+                autoComplete="name"
+                placeholder="Your name"
+                maxLength={80}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
+          )}
 
           <div className="field">
             <label htmlFor="email">Email address</label>
@@ -101,6 +163,9 @@ export default function LoginPage({ onLogin }) {
               onChange={(e) => setEmail(e.target.value)}
               required
             />
+            {mode === 'register' && (
+              <span className="muted small">Use your @company.com email address.</span>
+            )}
           </div>
 
           <div className="field">
@@ -109,8 +174,10 @@ export default function LoginPage({ onLogin }) {
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
-                placeholder="Enter your password"
+                autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                placeholder={mode === 'register' ? 'At least 8 characters' : 'Enter your password'}
+                minLength={mode === 'register' ? 8 : undefined}
+                maxLength={mode === 'register' ? 128 : undefined}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -126,6 +193,23 @@ export default function LoginPage({ onLogin }) {
             </div>
           </div>
 
+          {mode === 'register' && (
+            <div className="field">
+              <label htmlFor="confirm-password">Confirm password</label>
+              <input
+                id="confirm-password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                placeholder="Repeat your password"
+                minLength={8}
+                maxLength={128}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+            </div>
+          )}
+
           <div className="login-row">
             <label className="checkbox">
               <input
@@ -135,31 +219,56 @@ export default function LoginPage({ onLogin }) {
               />
               Remember me
             </label>
-            <button
-              type="button"
-              className="link-btn"
-              onClick={() =>
-                alert(
-                  role === 'admin'
-                    ? 'IT support passwords are reset by the system administrator. Ask the system owner to reset your account.'
-                    : 'Contact IT support at it-support@company.com to reset your password.'
-                )
-              }
-            >
-              Forgot password?
-            </button>
+            {mode === 'signin' && (
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => alert(RESET_MESSAGES[role])}
+              >
+                Forgot password?
+              </button>
+            )}
           </div>
 
           <button className="btn btn-primary btn-full" type="submit" disabled={busy}>
-            {busy ? 'Signing in…' : 'Sign in'}
+            {busy
+              ? mode === 'register'
+                ? 'Creating account…'
+                : 'Signing in…'
+              : mode === 'register'
+                ? 'Create account'
+                : 'Sign in'}
           </button>
 
-          <div className="demo-box">
-            <strong>Demo accounts</strong>
-            <span>Employee · tushar@company.com / helpdesk123</span>
-            <span>Administration · admin@company.com / admin123</span>
-            <span>IT Support · accounts are created in Administration</span>
-          </div>
+          {mode === 'signin' ? (
+            <>
+              <p className="auth-switch muted">
+                New employee?{' '}
+                <button type="button" className="link-btn" onClick={() => switchMode('register')}>
+                  Create an account
+                </button>
+              </p>
+              <div className="demo-box">
+                <strong>Demo accounts</strong>
+                <span>Employee · tushar@company.com / helpdesk123</span>
+                <span>Administration · admin@company.com / admin123</span>
+                <span>IT Support · accounts are created and reset in Administration</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="auth-switch muted">
+                Already have an account?{' '}
+                <button type="button" className="link-btn" onClick={() => switchMode('signin')}>
+                  Sign in
+                </button>
+              </p>
+              <p className="muted small">
+                Employee self-registration is limited to @company.com. IT Support accounts are
+                created by Administration.
+              </p>
+            </>
+          )}
         </form>
       </main>
     </div>

@@ -27,10 +27,10 @@ test('matches email problems', () => {
   assert.strictEqual(findCategory('I cannot send or receive emails').category, 'Email');
 });
 
-test('password steps point to Settings and support', () => {
+test('password steps point to Settings and Administration', () => {
   const { steps } = findCategory('I forgot my password');
   assert.ok(steps.some((step) => step.includes('Settings')));
-  assert.ok(steps.some((step) => step.includes('it-support@company.com')));
+  assert.ok(steps.some((step) => step.includes('admin@company.com')));
 });
 
 test('matches application errors', () => {

@@ -153,6 +153,12 @@ button {
   text-decoration: underline;
 }
 
+.link-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
 .icon-btn {
   display: grid;
   place-items: center;
@@ -742,6 +748,14 @@ button {
 
 .link-btn.danger {
   color: var(--red);
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  white-space: nowrap;
 }
 
 .status-option:disabled {
@@ -1921,6 +1935,12 @@ button {
 .demo-box strong {
   color: #334155;
   font-size: 12.5px;
+}
+
+.auth-switch {
+  margin-top: 18px;
+  text-align: center;
+  font-size: 13px;
 }
 
 .toast {
