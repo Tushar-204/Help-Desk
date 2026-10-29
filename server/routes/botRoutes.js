@@ -1,10 +1,11 @@
 const express = require('express');
 const { CATEGORIES, findCategory, alreadyShown } = require('../bot/instructions');
 const { askGemini } = require('../bot/gemini');
+const { createTurnCounter, MAX_TURNS } = require('../bot/turns');
 const { rateLimit } = require('../middleware/rateLimit');
 
 const router = express.Router();
-const MAX_TURNS = 10;
+const turnCounter = createTurnCounter();
 
 const chatLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
@@ -25,7 +26,7 @@ function fallbackReply(match, repeat) {
 
 // POST /api/bot/message
 router.post('/message', chatLimiter, async (req, res, next) => {
-  const { message, history, userTurns, seenSteps, topic } = req.body || {};
+  const { message, history, seenSteps, topic } = req.body || {};
 
   if (typeof message !== 'string' || !message.trim()) {
     return res.status(400).json({ error: 'Please describe your problem.' });
@@ -34,9 +35,7 @@ router.post('/message', chatLimiter, async (req, res, next) => {
     return res.status(400).json({ error: 'Message must be 1000 characters or fewer.' });
   }
 
-  // ponytail: turn count is reported by the client that owns the chat; move it
-  // into a server-side session if the limit ever needs to resist tampering.
-  const turns = Number(userTurns) || 1;
+  const turns = turnCounter.take(req.user._id);
 
   // Keep the chat on the first detected topic so "still broken" replies don't
   // false-match a different category.

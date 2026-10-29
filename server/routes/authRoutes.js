@@ -1,15 +1,27 @@
 const express = require('express');
 const { User } = require('../models/User');
-const { auth, verifyPassword, hashPassword, signToken } = require('../auth');
+const {
+  auth,
+  verifyPassword,
+  hashPassword,
+  signToken,
+  temporaryPasswordExpired,
+} = require('../auth');
 const { rateLimit } = require('../middleware/rateLimit');
-const { parseAccount } = require('../accountRules');
+const { parseAccount, normalizeEmail } = require('../accountRules');
 
 const router = express.Router();
+
+const loginIpLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 50,
+  message: 'Too many sign-in attempts from this network. Try again in a few minutes.',
+});
 
 const loginLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   limit: 10,
-  key: (req) => `${req.ip}:${String(req.body?.email || '').toLowerCase()}`,
+  key: (req) => `${req.ip}:${normalizeEmail(req.body?.email)}`,
   message: 'Too many sign-in attempts. Try again in a few minutes.',
 });
 
@@ -22,7 +34,13 @@ const registerLimiter = rateLimit({
 function authResponse(user) {
   return {
     token: signToken(user),
-    user: { id: user._id, name: user.name, email: user.email, role: user.role },
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      mustChangePassword: Boolean(user.mustChangePassword),
+    },
   };
 }
 
@@ -32,6 +50,11 @@ router.post('/register', registerLimiter, async (req, res, next) => {
   if (parsed.error) return res.status(400).json({ error: parsed.error });
 
   try {
+    if (!(await User.exists({ role: 'admin' }))) {
+      return res.status(503).json({
+        error: 'Registration is not available until an administrator is configured.',
+      });
+    }
     const user = await User.create({
       name: parsed.values.name,
       email: parsed.values.email,
@@ -48,16 +71,21 @@ router.post('/register', registerLimiter, async (req, res, next) => {
 });
 
 // POST /api/auth/login
-router.post('/login', loginLimiter, async (req, res, next) => {
+router.post('/login', loginIpLimiter, loginLimiter, async (req, res, next) => {
   const { email, password } = req.body || {};
   if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) {
     return res.status(400).json({ error: 'Email and password are required.' });
   }
 
   try {
-    const user = await User.findOne({ email: email.trim().toLowerCase() });
+    const user = await User.findOne({ email: normalizeEmail(email) });
     if (!user || user.active === false || !(await verifyPassword(password, user.passwordHash))) {
       return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+    if (user.mustChangePassword && temporaryPasswordExpired(user.temporaryPasswordExpiresAt)) {
+      return res.status(403).json({
+        error: 'Temporary password expired. Ask an administrator to reset it.',
+      });
     }
     res.json(authResponse(user));
   } catch (err) {
@@ -81,8 +109,11 @@ router.put('/password', auth, async (req, res, next) => {
       return res.status(400).json({ error: 'Current password is incorrect.' });
     }
     user.passwordHash = await hashPassword(newPassword);
+    user.mustChangePassword = false;
+    user.temporaryPasswordExpiresAt = null;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
-    res.json({ message: 'Password updated.' });
+    res.json({ message: 'Password updated. Other sessions signed out.', token: signToken(user) });
   } catch (err) {
     next(err);
   }

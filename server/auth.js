@@ -4,7 +4,16 @@ const { User } = require('./models/User');
 
 const SECRET = process.env.AUTH_SECRET || 'helpdesk-dev-secret';
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const TEMP_PASSWORD_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const scrypt = promisify(crypto.scrypt);
+
+function temporaryPasswordExpiry(now = Date.now()) {
+  return new Date(now + TEMP_PASSWORD_TTL_MS);
+}
+
+function temporaryPasswordExpired(expiresAt, now = Date.now()) {
+  return Boolean(expiresAt && new Date(expiresAt).getTime() <= now);
+}
 
 async function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
@@ -54,13 +63,24 @@ async function auth(req, res, next) {
     const payload = verifyToken(token);
     if (!payload) return res.status(401).json({ error: 'Please sign in.' });
     const user = await User.findById(payload.sub).select(
-      'name email role active tokenVersion'
+      'name email role active tokenVersion mustChangePassword temporaryPasswordExpiresAt'
     );
     if (!user || user.active === false) {
       return res.status(401).json({ error: 'Please sign in.' });
     }
     if ((payload.v || 0) !== (user.tokenVersion || 0)) {
       return res.status(401).json({ error: 'Please sign in.' });
+    }
+    if (user.mustChangePassword) {
+      if (temporaryPasswordExpired(user.temporaryPasswordExpiresAt)) {
+        return res.status(403).json({
+          error: 'Temporary password expired. Ask an administrator to reset it.',
+        });
+      }
+      const changingPassword = req.baseUrl === '/api/auth' && req.path === '/password';
+      if (!changingPassword) {
+        return res.status(403).json({ error: 'Change your temporary password first.' });
+      }
     }
     req.user = user;
     next();
@@ -86,6 +106,8 @@ module.exports = {
   verifyPassword,
   signToken,
   verifyToken,
+  temporaryPasswordExpiry,
+  temporaryPasswordExpired,
   auth,
   adminOnly,
   staffOnly,

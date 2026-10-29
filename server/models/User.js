@@ -7,6 +7,9 @@ const userSchema = new Schema({
   role: { type: String, enum: ['employee', 'support', 'admin'], default: 'employee' },
   active: { type: Boolean, default: true },
   tokenVersion: { type: Number, default: 0 },
+  mustChangePassword: { type: Boolean, default: false },
+  temporaryPasswordExpiresAt: { type: Date, default: null },
+  deletedAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },
 });
 

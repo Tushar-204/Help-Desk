@@ -26,6 +26,8 @@ export default function ManageAccounts({ role }) {
   const [removing, setRemoving] = useState('');
   const [resetting, setResetting] = useState('');
   const [toggling, setToggling] = useState('');
+  const [editing, setEditing] = useState(null);
+  const [editForm, setEditForm] = useState({ name: '', email: '' });
 
   useEffect(() => {
     let ignore = false;
@@ -100,6 +102,7 @@ export default function ManageAccounts({ role }) {
       await api.delete(`/users/${id}`);
       setAccounts((prev) => prev.filter((item) => accountId(item) !== id));
       if (notice?.email === account.email) setNotice(null);
+      if (editing && accountId(editing) === id) cancelEdit();
     } catch (err) {
       setActionError(err.response?.data?.error || 'Could not remove the account.');
     } finally {
@@ -107,7 +110,43 @@ export default function ManageAccounts({ role }) {
     }
   }
 
+  function startEdit(account) {
+    setEditing(account);
+    setEditForm({ name: account.name, email: account.email });
+    setActionError('');
+  }
+
+  function cancelEdit() {
+    setEditing(null);
+    setEditForm({ name: '', email: '' });
+  }
+
+  async function saveEdit(e) {
+    e.preventDefault();
+    if (!editing) return;
+    if (!editForm.name.trim() || !editForm.email.trim().toLowerCase().endsWith('@company.com')) {
+      setActionError('Enter a name and a @company.com email address.');
+      return;
+    }
+    const id = accountId(editing);
+    setActionError('');
+    try {
+      const { data } = await api.patch(`/users/${id}`, editForm);
+      setAccounts((prev) =>
+        prev.map((item) =>
+          accountId(item) === id ? { ...item, ...data, ticketCount: item.ticketCount } : item
+        )
+      );
+      setEditing(null);
+      setEditForm({ name: '', email: '' });
+    } catch (err) {
+      setActionError(err.response?.data?.error || 'Could not update the account.');
+    }
+  }
+
   const update = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
+  const updateEdit = (field) => (e) =>
+    setEditForm((prev) => ({ ...prev, [field]: e.target.value }));
 
   async function submit(e) {
     e.preventDefault();
@@ -116,8 +155,8 @@ export default function ManageAccounts({ role }) {
       setError('Enter a name, email, and a password of at least 8 characters.');
       return;
     }
-    if (isEmployee && !form.email.trim().toLowerCase().endsWith('@company.com')) {
-      setError('Use a @company.com email address for employees.');
+    if (!form.email.trim().toLowerCase().endsWith('@company.com')) {
+      setError('Use a @company.com email address.');
       return;
     }
     setSaving(true);
@@ -167,6 +206,45 @@ export default function ManageAccounts({ role }) {
         </div>
       )}
 
+      {editing && (
+        <section className="card form-card">
+          <h2>Edit {editing.name}</h2>
+          <form onSubmit={saveEdit}>
+            <div className="form-row">
+              <div className="field">
+                <label htmlFor="edit-name">Full name</label>
+                <input
+                  id="edit-name"
+                  value={editForm.name}
+                  onChange={updateEdit('name')}
+                  maxLength={80}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="edit-email">Work email</label>
+                <input
+                  id="edit-email"
+                  type="email"
+                  value={editForm.email}
+                  onChange={updateEdit('email')}
+                  required
+                />
+                <span className="muted small">Must be a @company.com address.</span>
+              </div>
+            </div>
+            <div className="form-actions">
+              <button className="btn btn-primary" type="submit">
+                Save changes
+              </button>
+              <button className="btn btn-outline" type="button" onClick={cancelEdit}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
+
       <section className="card form-card">
         <h2>{isEmployee ? 'Add an employee' : 'Add an IT support agent'}</h2>
         <form onSubmit={submit}>
@@ -194,9 +272,7 @@ export default function ManageAccounts({ role }) {
                 required
               />
               <span className="muted small">
-                {isEmployee
-                  ? 'Must be a @company.com address.'
-                  : 'The agent will use this email to sign in.'}
+                Must be a @company.com address. The {person} will use it to sign in.
               </span>
             </div>
           </div>
@@ -289,6 +365,13 @@ export default function ManageAccounts({ role }) {
                       <td className="muted">{formatDate(account.createdAt)}</td>
                       <td>
                         <div className="row-actions">
+                          <button
+                            className="link-btn"
+                            disabled={actionsBusy(account)}
+                            onClick={() => startEdit(account)}
+                          >
+                            Edit
+                          </button>
                           <button
                             className="link-btn"
                             disabled={actionsBusy(account)}

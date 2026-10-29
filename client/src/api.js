@@ -1,7 +1,8 @@
 import axios from 'axios';
 
-// Vite proxies /api to the Express server (see vite.config.js)
-const api = axios.create({ baseURL: '/api', timeout: 30000 });
+// Vite proxies /api in development. Set VITE_API_URL for a separately hosted API.
+const API_BASE = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '');
+const api = axios.create({ baseURL: API_BASE, timeout: 60000 });
 
 api.interceptors.request.use((config) => {
   const session = loadSession();
@@ -49,6 +50,28 @@ export function loadSession() {
 export function saveSession(session, remember) {
   clearSession();
   (remember ? localStorage : sessionStorage).setItem('helpdesk_session', JSON.stringify(session));
+}
+
+export function updateSession(patch) {
+  for (const store of [localStorage, sessionStorage]) {
+    try {
+      const session = JSON.parse(store.getItem('helpdesk_session') || 'null');
+      if (!session?.token) continue;
+      const next = {
+        ...session,
+        ...patch,
+        user: patch.user ? { ...session.user, ...patch.user } : session.user,
+      };
+      store.setItem('helpdesk_session', JSON.stringify(next));
+      return;
+    } catch {
+      // corrupted entry, ignore
+    }
+  }
+}
+
+export function updateSessionToken(token) {
+  updateSession({ token });
 }
 
 export function clearSession() {

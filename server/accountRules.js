@@ -1,6 +1,10 @@
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const COMPANY_DOMAIN = '@company.com';
 
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
 function parseAccount(body = {}, { companyOnly = false } = {}) {
   if (typeof body.name !== 'string' || !body.name.trim() || body.name.trim().length > 80) {
     return { error: 'A name of 80 characters or fewer is required.' };
@@ -9,7 +13,7 @@ function parseAccount(body = {}, { companyOnly = false } = {}) {
     return { error: 'A valid email is required.' };
   }
 
-  const email = body.email.trim().toLowerCase();
+  const email = normalizeEmail(body.email);
   if (companyOnly && !email.endsWith(COMPANY_DOMAIN)) {
     return { error: 'Use your @company.com email address.' };
   }
@@ -26,4 +30,4 @@ function parseAccount(body = {}, { companyOnly = false } = {}) {
   };
 }
 
-module.exports = { parseAccount, COMPANY_DOMAIN, EMAIL_RE };
+module.exports = { parseAccount, normalizeEmail, COMPANY_DOMAIN, EMAIL_RE };

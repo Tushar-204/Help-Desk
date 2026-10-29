@@ -180,6 +180,11 @@ button {
   min-height: 100vh;
 }
 
+.forced-shell {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
 .sidebar {
   position: fixed;
   inset: 0 auto 0 0;

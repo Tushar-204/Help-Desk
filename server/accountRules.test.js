@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { parseAccount } = require('./accountRules');
+const { parseAccount, normalizeEmail } = require('./accountRules');
 
 test('employee registration requires a company email', () => {
   const ok = parseAccount(
@@ -25,6 +25,11 @@ test('account validation rejects bad names, emails, and passwords', () => {
   assert.ok(
     parseAccount({ name: 'A', email: 'a@company.com', password: 'x'.repeat(129) }).error
   );
+});
+
+test('email normalization trims and lowercases for lookups and rate-limit keys', () => {
+  assert.equal(normalizeEmail('  Test.User@COMPANY.COM '), 'test.user@company.com');
+  assert.equal(normalizeEmail(undefined), '');
 });
 
 test('non-company accounts can use any valid email', () => {

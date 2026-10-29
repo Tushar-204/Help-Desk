@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import api from '../api';
 
 const ROLE_TABS = [
@@ -24,6 +24,20 @@ export default function LoginPage({ onLogin }) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [demoMode, setDemoMode] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .get('/health')
+      .then(({ data }) => {
+        if (alive) setDemoMode(Boolean(data.demoMode));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   function switchMode(next) {
     setMode(next);
@@ -248,12 +262,14 @@ export default function LoginPage({ onLogin }) {
                   Create an account
                 </button>
               </p>
-              <div className="demo-box">
-                <strong>Demo accounts</strong>
-                <span>Employee · tushar@company.com / helpdesk123</span>
-                <span>Administration · admin@company.com / admin123</span>
-                <span>IT Support · accounts are created and reset in Administration</span>
-              </div>
+              {demoMode && (
+                <div className="demo-box">
+                  <strong>Demo accounts</strong>
+                  <span>Employee · tushar@company.com / helpdesk123</span>
+                  <span>IT Support · support@company.com / support123</span>
+                  <span>Administration · admin@company.com / admin123</span>
+                </div>
+              )}
             </>
           ) : (
             <>

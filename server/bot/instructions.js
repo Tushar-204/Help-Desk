@@ -16,10 +16,10 @@ const CATEGORIES = [
     keywords: ['password', 'reset', 'forgot', 'change pass', 'otp', 'verification code'],
     steps: [
       'If you are signed in, change your password from Settings → Password.',
-      'If you are locked out, use the Forgot password? link on the sign-in page for reset instructions.',
+      'If you are locked out, ask Administration at admin@company.com to reset your password.',
       'Make sure Caps Lock is off and try signing in again.',
       'Try signing in from a different browser or device.',
-      'If you are still locked out, email Administration at admin@company.com.',
+      'If you still cannot sign in, contact your manager or the IT service desk.',
     ],
   },
   {

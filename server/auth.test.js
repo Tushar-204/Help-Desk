@@ -5,6 +5,8 @@ const {
   verifyPassword,
   signToken,
   verifyToken,
+  temporaryPasswordExpiry,
+  temporaryPasswordExpired,
   adminOnly,
   staffOnly,
 } = require('./auth');
@@ -45,6 +47,16 @@ test('signed token round-trips and rejects tampering', () => {
   assert.equal(verifyToken(`${body}x.${sig}`), null);
   assert.equal(verifyToken(`${body}.${sig}x`), null);
   assert.equal(verifyToken(''), null);
+});
+
+test('temporary passwords expire after seven days', () => {
+  const start = Date.now();
+  const expiresAt = temporaryPasswordExpiry(start);
+
+  assert.equal(temporaryPasswordExpired(expiresAt, start), false);
+  assert.equal(temporaryPasswordExpired(expiresAt, start + 7 * 24 * 60 * 60 * 1000 - 1), false);
+  assert.equal(temporaryPasswordExpired(expiresAt, start + 7 * 24 * 60 * 60 * 1000), true);
+  assert.equal(temporaryPasswordExpired(null, start), false);
 });
 
 test('support routes allow IT support and administration, not employees', () => {

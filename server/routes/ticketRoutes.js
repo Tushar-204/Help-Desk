@@ -3,10 +3,27 @@ const { isValidObjectId } = require('mongoose');
 const { Ticket, Counter, STATUSES, PRIORITIES } = require('../models/Ticket');
 const { CATEGORIES } = require('../bot/instructions');
 const { staffOnly, adminOnly } = require('../auth');
+const { rateLimit } = require('../middleware/rateLimit');
 const { EMPLOYEE_CREATE_FIELDS, STAFF_UPDATE_FIELDS, pickFields } = require('../ticketFields');
 
 const router = express.Router();
 const CATEGORY_NAMES = ['General', ...CATEGORIES.map((c) => c.name)];
+const MAX_OPEN_TICKETS = 10;
+const MAX_MESSAGES = 200;
+
+const ticketLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
+  key: (req) => String(req.user._id),
+  message: 'Too many new tickets. Try again later.',
+});
+
+const messageLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: 30,
+  key: (req) => String(req.user._id),
+  message: 'Too many messages. Try again in a few minutes.',
+});
 
 async function nextToken() {
   const counter = await Counter.findByIdAndUpdate(
@@ -92,18 +109,28 @@ function canAccess(user, ticket) {
 }
 
 // POST /api/tickets
-router.post('/', async (req, res, next) => {
+router.post('/', ticketLimiter, async (req, res, next) => {
   const parsed = parseTicket(req.body);
   if (parsed.error) return res.status(400).json({ error: parsed.error });
   const values = pickFields(parsed.values, EMPLOYEE_CREATE_FIELDS);
 
   try {
+    if (req.user.role === 'employee') {
+      const open = await Ticket.countDocuments({
+        createdBy: req.user._id,
+        status: { $ne: 'Resolved' },
+      });
+      if (open >= MAX_OPEN_TICKETS) {
+        return res.status(429).json({ error: 'You already have too many open tickets.' });
+      }
+    }
     const ticket = await createTicket({
       ...values,
       status: 'Open',
       assignedTo: 'IT Support',
       employee: req.user.name,
       createdBy: req.user._id,
+      updatedById: req.user._id,
     });
     res.status(201).json(ticket);
   } catch (err) {
@@ -136,11 +163,18 @@ router.get('/activity', async (req, res, next) => {
           title: 1,
           status: 1,
           createdBy: 1,
+          updatedById: 1,
           updatedAt: 1,
           messageCount: { $size: { $ifNull: ['$messages', []] } },
           lastMessageRole: {
             $ifNull: [
               { $arrayElemAt: [{ $ifNull: ['$messages.role', []] }, -1] },
+              null,
+            ],
+          },
+          lastMessageAuthorId: {
+            $ifNull: [
+              { $arrayElemAt: [{ $ifNull: ['$messages.authorId', []] }, -1] },
               null,
             ],
           },
@@ -178,7 +212,7 @@ router.put('/:id', staffOnly, async (req, res, next) => {
   try {
     const ticket = await Ticket.findByIdAndUpdate(
       req.params.id,
-      { ...values, updatedAt: Date.now() },
+      { ...values, updatedAt: Date.now(), updatedById: req.user._id },
       { new: true, runValidators: true }
     );
     if (!ticket) return res.status(404).json({ error: 'Ticket not found.' });
@@ -189,7 +223,7 @@ router.put('/:id', staffOnly, async (req, res, next) => {
 });
 
 // POST /api/tickets/:id/messages — conversation between employee and IT support.
-router.post('/:id/messages', async (req, res, next) => {
+router.post('/:id/messages', messageLimiter, async (req, res, next) => {
   if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: 'Invalid ticket id.' });
   const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
   if (!text) return res.status(400).json({ error: 'Message is required.' });
@@ -199,13 +233,18 @@ router.post('/:id/messages', async (req, res, next) => {
     const ticket = await Ticket.findById(req.params.id);
     if (!ticket) return res.status(404).json({ error: 'Ticket not found.' });
     if (!canAccess(req.user, ticket)) return res.status(403).json({ error: 'Not your ticket.' });
+    if (ticket.messages.length >= MAX_MESSAGES) {
+      return res.status(429).json({ error: 'This ticket has reached its message limit.' });
+    }
 
     ticket.messages.push({
       author: req.user.name,
+      authorId: req.user._id,
       role: req.user.role === 'employee' ? 'employee' : 'admin',
       text,
     });
     ticket.updatedAt = Date.now();
+    ticket.updatedById = req.user._id;
     await ticket.save();
     res.status(201).json(ticket);
   } catch (err) {

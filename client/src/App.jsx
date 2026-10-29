@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { loadSession, saveSession, clearSession } from './api';
+import { loadSession, saveSession, clearSession, updateSession, updateSessionToken } from './api';
 import LoginPage from './components/LoginPage';
 import Layout from './components/Layout';
 import EmployeeDashboard from './components/EmployeeDashboard';
@@ -57,8 +57,20 @@ export default function App() {
       setTicketId(null);
       window.history.replaceState({ page: 'login' }, '');
     }
+    function onStorage(event) {
+      if (event.key !== 'helpdesk_session') return;
+      const next = loadSession();
+      setSession(next);
+      setPage('dashboard');
+      setTicketId(null);
+      window.history.replaceState({ page: next ? 'dashboard' : 'login' }, '');
+    }
     window.addEventListener('helpdesk:unauthorized', onUnauthorized);
-    return () => window.removeEventListener('helpdesk:unauthorized', onUnauthorized);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('helpdesk:unauthorized', onUnauthorized);
+      window.removeEventListener('storage', onStorage);
+    };
   }, []);
 
   function handleLogin(next, remember) {
@@ -74,6 +86,18 @@ export default function App() {
     setPage('dashboard');
     setTicketId(null);
     window.history.replaceState({ page: 'login' }, '');
+  }
+
+  function handleNewToken(token) {
+    updateSessionToken(token);
+    setSession((current) => (current ? { ...current, token } : current));
+  }
+
+  function handlePasswordChanged() {
+    updateSession({ user: { mustChangePassword: false } });
+    setSession((current) =>
+      current ? { ...current, user: { ...current.user, mustChangePassword: false } } : current
+    );
   }
 
   function navigate(next) {
@@ -116,6 +140,22 @@ export default function App() {
   }
 
   if (!session) return <LoginPage onLogin={handleLogin} />;
+
+  if (session.user.mustChangePassword) {
+    return (
+      <div className="forced-shell">
+        <main className="content">
+          <Settings
+            user={session.user}
+            onLogout={handleLogout}
+            onToken={handleNewToken}
+            onPasswordChanged={handlePasswordChanged}
+            forcePasswordChange
+          />
+        </main>
+      </div>
+    );
+  }
 
   const isAdmin = session.user.role === 'admin';
   const isStaff = isAdmin || session.user.role === 'support';
@@ -169,7 +209,14 @@ export default function App() {
       {page === 'team' && isAdmin && <ManageAccounts key="support" role="support" />}
       {page === 'kb' && !isStaff && <KnowledgeBase />}
       {page === 'help' && <HelpPage user={session.user} />}
-      {page === 'settings' && <Settings user={session.user} onLogout={handleLogout} />}
+      {page === 'settings' && (
+        <Settings
+          user={session.user}
+          onLogout={handleLogout}
+          onToken={handleNewToken}
+          onPasswordChanged={handlePasswordChanged}
+        />
+      )}
       {!PAGES.has(page) && (
         <section className="card empty-state">
           <span>🧭</span>

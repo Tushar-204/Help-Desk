@@ -1,6 +1,6 @@
 // Gemini chat completions. Returns null when unavailable so routes can fall back.
 const KEY = process.env.GEMINI_API_KEY;
-const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 const URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
 const SYSTEM = `You are the friendly IT support assistant inside an employee helpdesk app.
@@ -9,16 +9,26 @@ Ask one clarifying question when the problem is unclear.
 If troubleshooting steps are supplied, acknowledge them and tell the user to try them.
 Never invent policy, prices, or account details.`;
 
+function buildTurns(history = []) {
+  const turns = [];
+  for (const m of history.filter((item) => item && item.text).slice(-12)) {
+    const role = m.from === 'bot' ? 'model' : 'user';
+    const text = String(m.text).slice(0, 500);
+    if (!turns.length && role !== 'user') continue;
+    const last = turns[turns.length - 1];
+    if (last && last.role === role) {
+      last.parts[0].text += `\n${text}`;
+    } else {
+      turns.push({ role, parts: [{ text }] });
+    }
+  }
+  return turns;
+}
+
 async function askGemini({ message, history = [], steps = [] }) {
   if (!KEY) return null;
 
-  const turns = history
-    .filter((m) => m && m.text)
-    .slice(-12)
-    .map((m) => ({
-      role: m.from === 'bot' ? 'model' : 'user',
-      parts: [{ text: String(m.text).slice(0, 500) }],
-    }));
+  const turns = buildTurns(history);
 
   let context = '';
   if (steps && steps.list?.length) {
@@ -61,4 +71,4 @@ async function askGemini({ message, history = [], steps = [] }) {
   }
 }
 
-module.exports = { askGemini };
+module.exports = { askGemini, buildTurns };

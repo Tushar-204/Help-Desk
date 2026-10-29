@@ -9,53 +9,73 @@ const botRoutes = require('./routes/botRoutes');
 const ticketRoutes = require('./routes/ticketRoutes');
 const userRoutes = require('./routes/userRoutes');
 const { auth, hashPassword } = require('./auth');
+const { parseAccount } = require('./accountRules');
 const { User } = require('./models/User');
+const { Ticket, Counter } = require('./models/Ticket');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/helpdesk';
-const DEMO_MODE = process.env.NODE_ENV !== 'production' || process.env.SEED_DEMO === 'true';
+const DEMO_MODE = process.env.SEED_DEMO === 'true';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const clientDist = path.join(__dirname, '../client/dist');
+const clientIndex = path.join(clientDist, 'index.html');
+const SERVE_CLIENT = process.env.SERVE_CLIENT !== 'false';
+const hasClientBuild = SERVE_CLIENT && fs.existsSync(clientIndex);
 
-if (process.env.NODE_ENV === 'production' && (!process.env.AUTH_SECRET || process.env.AUTH_SECRET.length < 32)) {
-  console.error('AUTH_SECRET must be set to at least 32 characters in production.');
+if (!process.env.AUTH_SECRET || process.env.AUTH_SECRET.length < 32) {
+  console.error('AUTH_SECRET must be set to at least 32 characters.');
   process.exit(1);
 }
-if (!process.env.AUTH_SECRET) {
-  console.warn('AUTH_SECRET is not set; using the development secret. Set it in server/.env before deploying.');
+if (SERVE_CLIENT && !hasClientBuild) {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('client/dist/index.html not found. Build the client before starting production.');
+    process.exit(1);
+  }
+  console.warn('client/dist/index.html not found. Run "npm run build" in client/ to serve the app.');
 }
 
-app.use(cors());
+app.disable('x-powered-by');
+if (process.env.TRUST_PROXY) {
+  const hops = Number(process.env.TRUST_PROXY);
+  app.set('trust proxy', Number.isInteger(hops) ? hops : process.env.TRUST_PROXY);
+}
+if (process.env.CLIENT_ORIGIN) {
+  const origins = process.env.CLIENT_ORIGIN.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  app.use(cors({ origin: origins }));
+}
 app.use(express.json());
 
 app.get('/api/health', (req, res) => {
   const ready = mongoose.connection.readyState === 1;
-  res.status(ready ? 200 : 503).json({ ok: ready });
+  res.status(ready ? 200 : 503).json({ ok: ready, demoMode: DEMO_MODE, clientBuild: hasClientBuild });
 });
 app.use('/api/auth', authRoutes);
 app.use('/api/bot', auth, botRoutes);
 app.use('/api/tickets', auth, ticketRoutes);
 app.use('/api/users', auth, userRoutes);
 
-// Serve the built client so the app and API can run on one port (npm run build in client/).
-const clientDist = path.join(__dirname, '../client/dist');
-if (!fs.existsSync(path.join(clientDist, 'index.html'))) {
-  console.warn('client/dist/index.html not found. Run "npm run build" in client/ to serve the app.');
+// Serve the built client when the frontend is not hosted separately.
+if (SERVE_CLIENT) {
+  app.use(
+    express.static(clientDist, {
+      setHeaders: (res, filePath) => {
+        const immutable = !filePath.endsWith('index.html');
+        res.setHeader(
+          'Cache-Control',
+          immutable ? 'public, max-age=31536000, immutable' : 'no-cache'
+        );
+      },
+    })
+  );
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || path.extname(req.path)) return next();
+    res.sendFile(clientIndex, (err) => err && next());
+  });
 }
-app.use(
-  express.static(clientDist, {
-    setHeaders: (res, filePath) => {
-      const immutable = !filePath.endsWith('index.html');
-      res.setHeader(
-        'Cache-Control',
-        immutable ? 'public, max-age=31536000, immutable' : 'no-cache'
-      );
-    },
-  })
-);
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api') || path.extname(req.path)) return next();
-  res.sendFile(path.join(clientDist, 'index.html'), (err) => err && next());
-});
 
 app.use((req, res) => res.status(404).json({ error: 'Not found.' }));
 
@@ -70,8 +90,52 @@ app.use((err, req, res, next) => {
           : err.status || 500;
 
   if (status >= 500) console.error(err);
-  res.status(status).json({ error: status >= 500 ? 'Internal server error.' : err.message });
+  let message = err.message;
+  if (status >= 500) message = 'Internal server error.';
+  else if (err.code === 11000) message = 'That value is already in use.';
+  else if (err.type === 'entity.parse.failed') message = 'Invalid JSON body.';
+  else if (err.name === 'ValidationError' || err.name === 'CastError') message = 'Invalid request.';
+  res.status(status).json({ error: message });
 });
+
+// One-time production bootstrap. Set ADMIN_EMAIL and ADMIN_PASSWORD for the first deploy.
+async function ensureAdmin() {
+  if (await User.exists({ role: 'admin' })) return;
+  if (!ADMIN_EMAIL && !ADMIN_PASSWORD) {
+    if (!DEMO_MODE) {
+      console.warn('No admin account exists. Set ADMIN_EMAIL and ADMIN_PASSWORD to bootstrap one.');
+    }
+    return;
+  }
+  if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+    throw new Error('Set both ADMIN_EMAIL and ADMIN_PASSWORD to bootstrap an admin.');
+  }
+  const parsed = parseAccount({
+    name: process.env.ADMIN_NAME || 'Administrator',
+    email: ADMIN_EMAIL,
+    password: ADMIN_PASSWORD,
+  });
+  if (parsed.error) throw new Error(`Admin bootstrap: ${parsed.error}`);
+  await User.create({
+    name: parsed.values.name,
+    email: parsed.values.email,
+    passwordHash: await hashPassword(parsed.values.password),
+    role: 'admin',
+  });
+  console.log(`Admin account created for ${parsed.values.email}.`);
+}
+
+// ponytail: startup scan keeps a reset counter from reusing ticket tokens;
+// move to a persisted high-water mark if ticket volume makes this scan slow.
+async function reconcileTicketCounter() {
+  const tickets = await Ticket.find({ token: /^HD-\d+$/ }).select('token').lean();
+  const highest = tickets.reduce(
+    (max, ticket) => Math.max(max, Number(ticket.token.slice(3)) || 0),
+    0
+  );
+  if (!highest) return;
+  await Counter.findByIdAndUpdate('ticket', { $max: { seq: highest } }, { upsert: true });
+}
 
 // ponytail: demo accounts seeded on first boot; replace with real onboarding when needed
 async function seedDemoUsers() {
@@ -90,8 +154,14 @@ async function seedDemoUsers() {
       passwordHash: await hashPassword('admin123'),
       role: 'admin',
     },
+    {
+      name: 'Support Agent',
+      email: 'support@company.com',
+      passwordHash: await hashPassword('support123'),
+      role: 'support',
+    },
   ]);
-  console.log('Demo mode: seeded demo users (tushar@company.com / admin@company.com)');
+  console.log('Demo mode: seeded demo users (tushar, admin, support)');
 }
 
 let server;
@@ -99,7 +169,9 @@ mongoose
   .connect(MONGO_URI)
   .then(async () => {
     console.log('MongoDB connected');
+    await ensureAdmin();
     await seedDemoUsers();
+    await reconcileTicketCounter();
     server = app.listen(PORT, () => console.log(`HelpDesk API running on http://localhost:${PORT}`));
   })
   .catch((err) => {

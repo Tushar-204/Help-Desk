@@ -59,7 +59,6 @@ export default function AiSupport({ user, onOpenTicket, onNavigate }) {
       const { data } = await api.post('/bot/message', {
         message: clean,
         history,
-        userTurns: nextTurns,
         seenSteps: stepsSeen,
         topic: category || undefined,
       });

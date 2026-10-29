@@ -109,9 +109,14 @@ export default function Layout({
           if (!prev) {
             if (String(t.createdBy) !== String(user.id)) changed.push({ ticket: t, fresh: true });
           } else if (prev.status !== t.status) {
-            if (mySide === 'employee') changed.push({ ticket: t, fresh: false });
+            if (mySide === 'employee' || String(t.updatedById) !== String(user.id)) {
+              changed.push({ ticket: t, fresh: false });
+            }
           } else if (prev.count !== snapshot(t).count) {
-            if (t.lastMessageRole !== mySide) changed.push({ ticket: t, fresh: false });
+            const mine = t.lastMessageAuthorId
+              ? String(t.lastMessageAuthorId) === String(user.id)
+              : t.lastMessageRole === mySide;
+            if (!mine) changed.push({ ticket: t, fresh: false });
           }
           seen.current.set(t._id, snapshot(t));
         }
