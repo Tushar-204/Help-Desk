@@ -4,11 +4,12 @@ This app can run as one Node/Express service that serves both the API and the bu
 
 ## Before You Deploy
 
-1. MongoDB is running somewhere reachable from the app.
-2. `client/dist` has been built. It is generated and ignored by git.
-3. `server/.env` is **not** committed.
-4. `SEED_DEMO=false`. Never enable demo accounts on a public deployment.
-5. Generate a production secret:
+1. Commit and push the current code. Render and Vercel deploy from GitHub; an unpushed local commit is ignored.
+2. MongoDB is running somewhere reachable from the app.
+3. `client/dist` has been built, unless `SERVE_CLIENT=false` is set for a split frontend.
+4. `server/.env` is **not** committed.
+5. `SEED_DEMO=false`. Never enable demo accounts on a public deployment.
+6. Generate a production secret:
 
 ```bash
 openssl rand -hex 32
@@ -295,7 +296,7 @@ After deployment:
 curl -i https://your-domain.com/api/health
 ```
 
-Expected: `200` with `"ok": true`, `"demoMode": false`, `"clientBuild": true`.
+Expected: `200` with `"ok": true`, `"demoMode": false`. In the split Render + Vercel setup, `"clientBuild": false` is expected; in the single-service setup it should be `true`.
 
 Then test:
 
@@ -305,6 +306,25 @@ Then test:
 4. Support queue reply and status change.
 5. Refresh a ticket page; the app should still load.
 6. Confirm `http://` redirects to HTTPS.
+
+## Render Troubleshooting
+
+### `client/dist/index.html not found`
+- **Render API + Vercel frontend:** set `SERVE_CLIENT=false` on Render. The API does not need the frontend build.
+- **Single Render service:** use the build command from Option B so `client/dist` is created before the server starts.
+
+### Render exits with status `1` before listening
+- Check that `MONGO_URI` is set to the Atlas URI and that Atlas allows Render’s network.
+- Check the Render logs for `MongoDB connected`. If that line is missing, the API never opened its port.
+- Confirm `AUTH_SECRET` is at least 32 characters.
+- Confirm the start command is `node server/server.js` and the build command finished successfully.
+- If Render asks for a port, do not set one manually; it is provided automatically.
+
+### Vercel loads but login fails
+- Confirm `VITE_API_URL` is `https://YOUR-API.onrender.com/api` and redeploy Vercel after changing it.
+- Confirm Render’s `CLIENT_ORIGIN` exactly matches the Vercel origin, including `https://`.
+- Check the browser Network tab: API requests should go to `onrender.com`, not the Vercel domain.
+- A Render free instance may be cold-starting; the first request can take up to a minute.
 
 ## Important Limitations
 

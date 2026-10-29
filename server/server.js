@@ -21,19 +21,27 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const clientDist = path.join(__dirname, '../client/dist');
 const clientIndex = path.join(clientDist, 'index.html');
-const SERVE_CLIENT = process.env.SERVE_CLIENT !== 'false';
+const SERVE_CLIENT = !['false', '0'].includes(
+  String(process.env.SERVE_CLIENT || '').toLowerCase()
+);
 const hasClientBuild = SERVE_CLIENT && fs.existsSync(clientIndex);
 
 if (!process.env.AUTH_SECRET || process.env.AUTH_SECRET.length < 32) {
   console.error('AUTH_SECRET must be set to at least 32 characters.');
   process.exit(1);
 }
+if (process.env.NODE_ENV === 'production' && !process.env.MONGO_URI) {
+  console.error('MONGO_URI must be set in production.');
+  process.exit(1);
+}
 if (SERVE_CLIENT && !hasClientBuild) {
+  const help =
+    'Build the client (client/npm run build) or set SERVE_CLIENT=false when the frontend is hosted separately.';
   if (process.env.NODE_ENV === 'production') {
-    console.error('client/dist/index.html not found. Build the client before starting production.');
+    console.error(`client/dist/index.html not found. ${help}`);
     process.exit(1);
   }
-  console.warn('client/dist/index.html not found. Run "npm run build" in client/ to serve the app.');
+  console.warn(`client/dist/index.html not found. ${help}`);
 }
 
 app.disable('x-powered-by');
