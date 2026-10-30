@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { findCategory, alreadyShown } = require('./instructions');
+const { findCategory, alreadyShown, wantsTicket } = require('./instructions');
 
 test('matches login problems', () => {
   assert.strictEqual(findCategory('I cannot login').category, 'Login');
@@ -51,4 +51,12 @@ test('detects troubleshooting steps already shown', () => {
   assert.equal(alreadyShown(match, []), false);
   assert.equal(alreadyShown(match, [match.steps[0]]), true);
   assert.equal(alreadyShown(null, ['anything']), false);
+});
+
+test('detects direct ticket requests without matching ticket status questions', () => {
+  assert.equal(wantsTicket('I want to create a ticket'), true);
+  assert.equal(wantsTicket('Can you raise a support ticket for me?'), true);
+  assert.equal(wantsTicket('I would like to open a ticket'), true);
+  assert.equal(wantsTicket('Do not create a ticket yet'), false);
+  assert.equal(wantsTicket('My ticket is still open'), false);
 });

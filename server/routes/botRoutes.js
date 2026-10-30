@@ -1,5 +1,5 @@
 const express = require('express');
-const { CATEGORIES, findCategory, alreadyShown } = require('../bot/instructions');
+const { CATEGORIES, findCategory, alreadyShown, wantsTicket } = require('../bot/instructions');
 const { askGemini } = require('../bot/gemini');
 const { createTurnCounter, MAX_TURNS } = require('../bot/turns');
 const { rateLimit } = require('../middleware/rateLimit');
@@ -35,13 +35,25 @@ router.post('/message', chatLimiter, async (req, res, next) => {
     return res.status(400).json({ error: 'Message must be 1000 characters or fewer.' });
   }
 
-  const turns = turnCounter.take(req.user._id);
-
   // Keep the chat on the first detected topic so "still broken" replies don't
   // false-match a different category.
   const locked = CATEGORIES.find((cat) => cat.name === topic);
   const match = locked ? { category: locked.name, steps: locked.steps } : findCategory(message);
   const repeat = alreadyShown(match, seenSteps);
+
+  if (wantsTicket(message)) {
+    return res.json({
+      category: match?.category || null,
+      reply:
+        'I can turn this conversation into a support ticket for you. Click "Create Support Ticket" below to review the details and send it to IT support.',
+      steps: [],
+      escalate: false,
+      createTicket: true,
+      maxTurns: MAX_TURNS,
+    });
+  }
+
+  const turns = turnCounter.take(req.user._id);
 
   if (turns >= MAX_TURNS) {
     return res.json({

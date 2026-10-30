@@ -5,7 +5,9 @@ A full-stack internal helpdesk demo: employees chat with an AI assistant, raise 
 ## Features
 
 - Employee, IT support, and administrator roles
+- Clear role split: Administration manages accounts; IT Support works the ticket queue
 - AI-guided troubleshooting with Gemini, plus a built-in rule-based fallback
+- Ask the assistant for a ticket at any point in the conversation
 - Ticket creation, conversation threads, status and priority tracking
 - Support queue with search and status filters
 - In-app notifications and activity polling

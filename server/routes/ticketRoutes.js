@@ -2,11 +2,12 @@ const express = require('express');
 const { isValidObjectId } = require('mongoose');
 const { Ticket, Counter, STATUSES, PRIORITIES } = require('../models/Ticket');
 const { CATEGORIES } = require('../bot/instructions');
-const { staffOnly, adminOnly } = require('../auth');
+const { staffOnly, adminOnly, ticketAccess } = require('../auth');
 const { rateLimit } = require('../middleware/rateLimit');
 const { EMPLOYEE_CREATE_FIELDS, STAFF_UPDATE_FIELDS, pickFields } = require('../ticketFields');
 
 const router = express.Router();
+router.use(ticketAccess);
 const CATEGORY_NAMES = ['General', ...CATEGORIES.map((c) => c.name)];
 const MAX_OPEN_TICKETS = 10;
 const MAX_MESSAGES = 200;

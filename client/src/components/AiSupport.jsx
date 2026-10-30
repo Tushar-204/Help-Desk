@@ -23,7 +23,7 @@ export default function AiSupport({ user, onOpenTicket, onNavigate }) {
     {
       id: 1,
       from: 'bot',
-      text: `Hi ${firstName}! I'm your IT support assistant. Describe the issue and I'll walk you through fixes. If I can't solve it, I'll set up a support ticket for you.`,
+      text: `Hi ${firstName}! I'm your IT support assistant. Describe the issue and I'll walk you through fixes. If I can't solve it, I'll set up a support ticket for you — you can also ask me to create one at any time.`,
       steps: [],
     },
   ]);
@@ -34,6 +34,7 @@ export default function AiSupport({ user, onOpenTicket, onNavigate }) {
   const [category, setCategory] = useState(null);
   const [askSolved, setAskSolved] = useState(false);
   const [escalated, setEscalated] = useState(false);
+  const [ticketReason, setTicketReason] = useState('limit');
   const [error, setError] = useState('');
   const [draft, setDraft] = useState(null);
   const [created, setCreated] = useState(null);
@@ -71,11 +72,19 @@ export default function AiSupport({ user, onOpenTicket, onNavigate }) {
       // can false-match other keywords, so don't let them override it.
       const primary = category || data.category;
       if (data.category && !category) setCategory(data.category);
+      if (data.createTicket) {
+        setTicketReason('request');
+        setEscalated(true);
+        return;
+      }
       if (data.steps?.length && data.category === primary) {
         setStepsSeen((prev) => [...new Set([...prev, ...data.steps])]);
       }
       setAskSolved(Boolean(data.steps?.length) && !data.escalate);
-      if (data.escalate) setEscalated(true);
+      if (data.escalate) {
+        setTicketReason('limit');
+        setEscalated(true);
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'The assistant is unavailable right now. Please try again.');
     } finally {
@@ -103,9 +112,18 @@ export default function AiSupport({ user, onOpenTicket, onNavigate }) {
 
   function openTicketForm() {
     const userTexts = messages.filter((m) => m.from === 'user').map((m) => m.text);
+    const issueTexts = userTexts.filter(
+      (text) =>
+        !/^\s*i (want|need|would like) (to )?(create|open|raise|make|submit|log|file) (a |an )?(support )?ticket\b/i.test(
+          text
+        )
+    );
+    const source = issueTexts.length ? issueTexts : userTexts;
+    const title =
+      issueTexts[0] || (ticketReason === 'request' ? 'IT support request' : source[0]);
     setDraft({
-      title: (userTexts[0] || 'IT support request').slice(0, 80),
-      description: userTexts.join('\n\n').slice(0, 2000),
+      title: (title || 'IT support request').slice(0, 80),
+      description: source.join('\n\n').slice(0, 2000),
       category: category || 'General',
       priority: 'Medium',
       attemptedSteps: stepsSeen,
@@ -233,7 +251,11 @@ export default function AiSupport({ user, onOpenTicket, onNavigate }) {
 
         {escalated ? (
           <div className="escalation">
-            <span>I've passed my limit for this chat. Our IT team can take it from here. 🎫</span>
+            <span>
+              {ticketReason === 'request'
+                ? 'I can turn this conversation into a support ticket. Review the details and send it to our IT team. 🎫'
+                : "I've passed my limit for this chat. Our IT team can take it from here. 🎫"}
+            </span>
             <button className="btn btn-primary" onClick={openTicketForm}>
               Create Support Ticket
             </button>

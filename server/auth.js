@@ -101,6 +101,13 @@ function staffOnly(req, res, next) {
   next();
 }
 
+function ticketAccess(req, res, next) {
+  if (req.user?.role === 'admin') {
+    return res.status(403).json({ error: 'Tickets are handled by IT support.' });
+  }
+  next();
+}
+
 module.exports = {
   hashPassword,
   verifyPassword,
@@ -111,4 +118,5 @@ module.exports = {
   auth,
   adminOnly,
   staffOnly,
+  ticketAccess,
 };

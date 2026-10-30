@@ -5,7 +5,7 @@ import { StatusBadge } from './TicketTable';
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
   { id: 'ai', label: 'AI Support', icon: '🤖', employeeOnly: true },
-  { id: 'tickets', label: 'My Tickets', icon: '🎫', adminLabel: 'Support Queue' },
+  { id: 'tickets', label: 'My Tickets', icon: '🎫', adminLabel: 'Support Queue', hideForAdmin: true },
   { id: 'employees', label: 'Manage Employees', icon: '👤', adminOnly: true },
   { id: 'team', label: 'Manage IT Support', icon: '👥', adminOnly: true },
   { id: 'kb', label: 'Knowledge Base', icon: '📚', employeeOnly: true },
@@ -86,11 +86,12 @@ export default function Layout({
   const [toast, setToast] = useState(null);
   const seen = useRef(null);
   const isAdmin = user.role === 'admin';
-  const isStaff = isAdmin || user.role === 'support';
-  const roleLabel = isAdmin ? 'Administration' : user.role === 'support' ? 'IT Support' : 'Employee';
+  const isSupport = user.role === 'support';
+  const roleLabel = isAdmin ? 'Administration' : isSupport ? 'IT Support' : 'Employee';
   const mySide = user.role === 'employee' ? 'employee' : 'admin';
 
   useEffect(() => {
+    if (isAdmin) return undefined;
     let alive = true;
     const snapshot = (t) => ({ status: t.status, count: t.messageCount || 0 });
 
@@ -145,7 +146,7 @@ export default function Layout({
       clearInterval(id);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [user.id, user.role, mySide, onActivity]);
+  }, [isAdmin, user.id, user.role, mySide, onActivity]);
 
   useEffect(() => {
     if (!toast) return;
@@ -179,7 +180,8 @@ export default function Layout({
           {NAV.filter(
             (item) =>
               (!item.adminOnly || isAdmin) &&
-              (!item.employeeOnly || user.role === 'employee')
+              (!item.employeeOnly || user.role === 'employee') &&
+              (!item.hideForAdmin || !isAdmin)
           ).map((item) => (
             <button
               key={item.id}
@@ -187,7 +189,7 @@ export default function Layout({
               onClick={() => go(item.id)}
             >
               <span className="nav-icon">{item.icon}</span>
-              {isStaff && item.adminLabel ? item.adminLabel : item.label}
+              {isSupport && item.adminLabel ? item.adminLabel : item.label}
             </button>
           ))}
         </nav>
@@ -217,26 +219,30 @@ export default function Layout({
             ☰
           </button>
 
-          <form className="search" onSubmit={submitSearch}>
-            <span aria-hidden="true">🔎</span>
-            <input
-              type="search"
-              placeholder="Search tickets, categories…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              aria-label="Search tickets"
-            />
-          </form>
+          {!isAdmin && (
+            <form className="search" onSubmit={submitSearch}>
+              <span aria-hidden="true">🔎</span>
+              <input
+                type="search"
+                placeholder="Search tickets, categories…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                aria-label="Search tickets"
+              />
+            </form>
+          )}
 
           <div className="topbar-actions">
-            <button
-              className="icon-btn"
-              aria-label="Notifications"
-              aria-expanded={menu === 'notifications'}
-              onClick={() => setMenu(menu === 'notifications' ? null : 'notifications')}
-            >
-              🔔
-            </button>
+            {!isAdmin && (
+              <button
+                className="icon-btn"
+                aria-label="Notifications"
+                aria-expanded={menu === 'notifications'}
+                onClick={() => setMenu(menu === 'notifications' ? null : 'notifications')}
+              >
+                🔔
+              </button>
+            )}
             <button
               className="profile-btn"
               aria-expanded={menu === 'profile'}

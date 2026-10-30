@@ -9,7 +9,7 @@
     "dev": "node server.js",
     "test": "node --test",
     "demo:seed": "DEMO_MONGO_URI=mongodb://127.0.0.1:27017/helpdesk_demo node scripts/seed-demo.js",
-    "demo": "npm run demo:seed && MONGO_URI=mongodb://127.0.0.1:27017/helpdesk_demo SEED_DEMO=true node server.js"
+    "demo": "npm run demo:seed && MONGO_URI=mongodb://127.0.0.1:27017/helpdesk_demo SEED_DEMO=true SERVE_CLIENT=true node server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

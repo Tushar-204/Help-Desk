@@ -76,7 +76,7 @@ const CONTENT = {
     },
   },
   admin: {
-    subtitle: 'How to manage employee and IT support accounts and oversee the queue.',
+    subtitle: 'How to manage employee and IT support accounts.',
     faqs: [
       {
         q: 'How do employees get accounts?',
@@ -107,6 +107,10 @@ const CONTENT = {
         a: 'Agents work the Support Queue, reply to employees, and update ticket statuses. They cannot manage accounts.',
       },
       {
+        q: 'Who handles the support queue?',
+        a: 'IT Support handles all ticket work. Administration manages employee and IT support accounts, access, and password resets.',
+      },
+      {
         q: 'What if I am locked out?',
         a: 'Administration passwords are reset by the system owner; IT support cannot reset them for you.',
       },
@@ -117,7 +121,7 @@ const CONTENT = {
       rows: [
         ['👤', 'Add an employee', 'Manage Employees in the sidebar.'],
         ['👥', 'Add an agent', 'Manage IT Support in the sidebar.'],
-        ['🎫', 'Oversee tickets', 'Open the Support Queue.'],
+        ['🎫', 'Ticket queue', 'IT Support handles the Support Queue and ticket updates.'],
         ['🔐', 'Password resets', 'Use Reset password on either account page; users can change it in Settings.'],
       ],
     },

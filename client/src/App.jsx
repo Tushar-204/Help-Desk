@@ -4,6 +4,7 @@ import LoginPage from './components/LoginPage';
 import Layout from './components/Layout';
 import EmployeeDashboard from './components/EmployeeDashboard';
 import AdminDashboard from './components/AdminDashboard';
+import SupportDashboard from './components/SupportDashboard';
 import ManageAccounts from './components/ManageAccounts';
 import AiSupport from './components/AiSupport';
 import MyTickets from './components/MyTickets';
@@ -126,7 +127,8 @@ export default function App() {
     const role = session.user.role;
     const blocked =
       (role !== 'employee' && (page === 'ai' || page === 'kb')) ||
-      (role !== 'admin' && (page === 'team' || page === 'employees'));
+      (role !== 'admin' && (page === 'team' || page === 'employees')) ||
+      (role === 'admin' && (page === 'tickets' || page === 'ticket'));
     if (blocked) {
       setPage('dashboard');
       window.history.replaceState({ page: 'dashboard' }, '');
@@ -171,8 +173,10 @@ export default function App() {
       onActivity={bumpActivity}
     >
       {page === 'dashboard' &&
-        (isStaff ? (
-          <AdminDashboard
+        (isAdmin ? (
+          <AdminDashboard user={session.user} onNavigate={navigate} />
+        ) : session.user.role === 'support' ? (
+          <SupportDashboard
             user={session.user}
             onOpenTicket={openTicket}
             onNavigate={navigate}
@@ -191,7 +195,7 @@ export default function App() {
       )}
       {page === 'tickets' && (
         <MyTickets
-          admin={isStaff}
+          admin={session.user.role === 'support'}
           initialQuery={ticketQuery}
           onOpenTicket={openTicket}
           refreshKey={refreshKey}

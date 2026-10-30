@@ -105,4 +105,14 @@ function alreadyShown(match, seenSteps = []) {
   );
 }
 
-module.exports = { CATEGORIES, findCategory, alreadyShown };
+function wantsTicket(message = '') {
+  const text = String(message).toLowerCase();
+  if (/\b(?:no|not|don't|do not)\b[^.!?]{0,30}\bticket\b/.test(text)) return false;
+  return (
+    /\b(?:create|open|raise|make|submit|log|file|need|want|would like)\b[^.!?]{0,40}\bticket\b/.test(
+      text
+    ) || /\bticket\b[^.!?]{0,30}\b(?:please|now)\b/.test(text)
+  );
+}
+
+module.exports = { CATEGORIES, findCategory, alreadyShown, wantsTicket };

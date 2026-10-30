@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import api from '../api';
-import TicketTable from './TicketTable';
 
 function greeting() {
   const hour = new Date().getHours();
@@ -9,27 +8,31 @@ function greeting() {
   return 'Good evening';
 }
 
-export default function AdminDashboard({ user, onOpenTicket, onNavigate, refreshKey }) {
-  const [tickets, setTickets] = useState([]);
+export default function AdminDashboard({ user, onNavigate }) {
+  const [employees, setEmployees] = useState([]);
+  const [support, setSupport] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reload, setReload] = useState(0);
 
   useEffect(() => {
     let ignore = false;
-    api
-      .get('/tickets')
-      .then((res) => {
+    Promise.all([
+      api.get('/users', { params: { role: 'employee' } }),
+      api.get('/users', { params: { role: 'support' } }),
+    ])
+      .then(([employeeRes, supportRes]) => {
         if (ignore) return;
-        setTickets(res.data);
+        setEmployees(employeeRes.data);
+        setSupport(supportRes.data);
         setError('');
       })
-      .catch(() => !ignore && setError('Could not load the support queue.'))
+      .catch(() => !ignore && setError('Could not load account totals.'))
       .finally(() => !ignore && setLoading(false));
     return () => {
       ignore = true;
     };
-  }, [refreshKey, reload]);
+  }, [reload]);
 
   function retry() {
     setLoading(true);
@@ -37,73 +40,86 @@ export default function AdminDashboard({ user, onOpenTicket, onNavigate, refresh
     setReload((n) => n + 1);
   }
 
-  const count = (status) => tickets.filter((t) => t.status === status).length;
-  const highPriority = tickets.filter(
-    (t) => t.priority === 'High' && t.status !== 'Resolved'
-  ).length;
+  const activeEmployees = employees.filter((employee) => employee.active !== false).length;
+  const activeSupport = support.filter((agent) => agent.active !== false).length;
 
   return (
     <>
       <div className="page-head">
         <div>
-          <h1>{greeting()}, {user?.role === 'admin' ? 'Administration' : 'IT Support'} 👋</h1>
-          <p className="muted">Here's what needs your attention today.</p>
+          <h1>{greeting()}, Administration 👋</h1>
+          <p className="muted">Manage employee and IT support accounts from here.</p>
         </div>
-        <button className="btn btn-primary" onClick={() => onNavigate('tickets')}>
-          🎫 Open Support Queue
+        <button className="btn btn-primary" onClick={() => onNavigate('employees')}>
+          👤 Manage Employees
         </button>
       </div>
 
       <div className="stats">
         <div className="stat-card">
-          <span className="stat-icon blue">🎫</span>
+          <span className="stat-icon blue">👤</span>
           <div>
-            <span className="stat-label">Open Tickets</span>
-            <strong className="stat-value">{count('Open')}</strong>
+            <span className="stat-label">Employees</span>
+            <strong className="stat-value">{loading ? '—' : employees.length}</strong>
           </div>
         </div>
         <div className="stat-card">
-          <span className="stat-icon amber">🛠️</span>
+          <span className="stat-icon green">✅</span>
           <div>
-            <span className="stat-label">In Progress</span>
-            <strong className="stat-value">{count('In Progress')}</strong>
+            <span className="stat-label">Active Employees</span>
+            <strong className="stat-value">{loading ? '—' : activeEmployees}</strong>
           </div>
         </div>
         <div className="stat-card">
-          <span className="stat-icon red">🚨</span>
+          <span className="stat-icon amber">👥</span>
           <div>
-            <span className="stat-label">High Priority</span>
-            <strong className="stat-value">{highPriority}</strong>
+            <span className="stat-label">IT Support Agents</span>
+            <strong className="stat-value">{loading ? '—' : support.length}</strong>
           </div>
         </div>
       </div>
 
-      <section className="card">
-        <div className="card-head">
-          <h2>Support Queue</h2>
-          <button className="link-btn" onClick={() => onNavigate('tickets')}>
-            View all →
-          </button>
-        </div>
+      {error ? (
+        <section className="card empty-state">
+          <span>⚠️</span>
+          <h3>Could not load account totals</h3>
+          <p className="muted">{error}</p>
+          <button className="btn btn-outline" onClick={retry}>Try again</button>
+        </section>
+      ) : (
+        <div className="settings-grid">
+          <section className="card">
+            <h2>Employee accounts</h2>
+            <p className="muted">
+              {loading
+                ? 'Loading employees…'
+                : `${employees.length} total · ${activeEmployees} active`}
+            </p>
+            <button className="btn btn-primary" onClick={() => onNavigate('employees')}>
+              Manage Employees
+            </button>
+          </section>
 
-        {loading ? (
-          <p className="muted">Loading queue…</p>
-        ) : error ? (
-          <div className="empty-state">
-            <span>⚠️</span>
-            <h3>Could not load the support queue</h3>
-            <p className="muted">{error}</p>
-            <button className="btn btn-outline" onClick={retry}>Try again</button>
-          </div>
-        ) : tickets.length === 0 ? (
-          <div className="empty-state">
-            <span>✅</span>
-            <h3>The queue is clear</h3>
-            <p className="muted">New employee tickets will appear here.</p>
-          </div>
-        ) : (
-          <TicketTable tickets={tickets.slice(0, 6)} onOpen={onOpenTicket} showEmployee />
-        )}
+          <section className="card">
+            <h2>IT Support accounts</h2>
+            <p className="muted">
+              {loading
+                ? 'Loading support agents…'
+                : `${support.length} total · ${activeSupport} active`}
+            </p>
+            <button className="btn btn-primary" onClick={() => onNavigate('team')}>
+              Manage IT Support
+            </button>
+          </section>
+        </div>
+      )}
+
+      <section className="card">
+        <h2>Ticket queue</h2>
+        <p className="muted">
+          The support queue belongs to the IT Support team. Administration manages accounts,
+          access, and password resets.
+        </p>
       </section>
     </>
   );

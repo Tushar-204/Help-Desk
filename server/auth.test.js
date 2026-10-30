@@ -9,6 +9,7 @@ const {
   temporaryPasswordExpired,
   adminOnly,
   staffOnly,
+  ticketAccess,
 } = require('./auth');
 
 function run(middleware, role) {
@@ -66,4 +67,11 @@ test('support routes allow IT support and administration, not employees', () => 
   assert.equal(run(staffOnly, 'employee').status, 403);
   assert.equal(run(adminOnly, 'support').nextCalled, false);
   assert.equal(run(adminOnly, 'admin').nextCalled, true);
+});
+
+test('ticket routes are available to employees and support, not administration', () => {
+  assert.equal(run(ticketAccess, 'employee').nextCalled, true);
+  assert.equal(run(ticketAccess, 'support').nextCalled, true);
+  assert.equal(run(ticketAccess, 'admin').nextCalled, false);
+  assert.equal(run(ticketAccess, 'admin').status, 403);
 });
