@@ -2,6 +2,8 @@
 
 A full-stack internal helpdesk demo: employees chat with an AI assistant, raise tickets, and track replies; IT support works the queue; administrators manage accounts.
 
+[Project complete analysis (PDF)](Help_Desk_Project_Complete_Analysis.pdf)
+
 ## Features
 
 - Employee, IT support, and administrator roles
