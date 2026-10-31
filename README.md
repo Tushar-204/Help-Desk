@@ -64,27 +64,51 @@ cd ../server
 npm run demo
 ```
 
-This seeds `helpdesk_demo` in MongoDB (without touching your main `helpdesk` database) and starts the app at `http://127.0.0.1:5000`. Stop any existing server first.
+This seeds `helpdesk_demo` in MongoDB (without touching your main `helpdesk` database) and starts the app at `http://127.0.0.1:5000`. Stop any existing server first. The seeder prints the generated demo credentials in the terminal; they are intentionally not listed in this public README.
 
-Demo accounts:
+The login screen can display demo credentials when `SEED_DEMO=true`. Never enable demo mode on a public deployment.
 
-| Role | Email | Password |
-| --- | --- | --- |
-| Employee | `tushar@company.com` | `helpdesk123` |
-| Employee | `riya@company.com` | `helpdesk123` |
-| Employee | `arjun@company.com` | `helpdesk123` |
-| IT Support | `support@company.com` | `support123` |
-| Administration | `admin@company.com` | `admin123` |
+## How to Log In
 
-The login screen shows these credentials when `SEED_DEMO=true`. They are for local demonstration only; do not expose this instance publicly.
+Select the login tab that matches the account type. Signing in through the wrong tab is rejected.
+
+| Role | Login tab | Where the credentials come from | After login |
+| --- | --- | --- | --- |
+| Employee | Employee | Self-registration with a company email, or an account created by Administration | Dashboard, AI Support, My Tickets |
+| IT Support | IT Support | An account created by Administration; the first password is temporary | Change password, then Support Queue |
+| Administration | Administration | `ADMIN_EMAIL` and `ADMIN_PASSWORD` configured on the server | Manage Employees and Manage IT Support |
+
+### Local demo login
+
+1. Start the backend:
+   ```bash
+   cd server
+   npm run demo
+   ```
+2. Open `http://localhost:5000`, or start the Vite frontend separately:
+   ```bash
+   cd client
+   npm run dev
+   ```
+   Then use `http://localhost:3000`.
+3. Use the employee, IT support, or admin credentials printed by the seeder.
+4. If the account was created with a temporary password, complete the Settings screen before the role dashboard opens.
+
+### Production login
+
+- **Administration:** the first server boot creates the admin from `ADMIN_EMAIL` and `ADMIN_PASSWORD`. Sign in through the Administration tab, then change the password in Settings. The admin manages employee and IT support accounts but does not work the Support Queue.
+- **IT Support:** the admin creates the account in Manage IT Support and shares the temporary password. Sign in through the IT Support tab and change the password; the Support Queue then becomes available.
+- **Employee:** self-register with a company email, or let the admin create the account in Manage Employees. Sign in through the Employee tab.
+
+Do not use demo accounts, demo passwords, or `SEED_DEMO=true` in production.
 
 ## Interview Walkthrough
 
-1. Sign in as `tushar@company.com` and open **AI Support**.
+1. Sign in through the Employee tab and open **AI Support**.
 2. Describe an issue such as “My printer is not working”; show the troubleshooting steps.
-3. Continue until the assistant offers a ticket, then create one.
-4. Sign in as `support@company.com`, open **Support Queue**, reply to the ticket, and change its status.
-5. Sign in as `admin@company.com` to show account management, password reset, and deactivation.
+3. Ask the assistant to create a ticket, or continue until it offers the ticket form.
+4. Sign out and sign in through the IT Support tab; open **Support Queue**, reply to the ticket, and change its status.
+5. Sign out and sign in through the Administration tab to show account management, password reset, and deactivation.
 6. Open **Settings** to show the forced password-change flow and session handling.
 
 ## Scripts
